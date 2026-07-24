@@ -410,9 +410,10 @@ can likewise be overridden.
 ==============================================================================
 10. Git status                                         *nxvim-tree-git-status*
 
-With `git = true` the tree shells out to `git status --porcelain` through
-`nx.run` (a promise, so nothing blocks), builds a path → status map, and
-paints a gutter sign per changed file plus a dirty dot on every directory that
+With `git = true` the tree reads the repository through the native `nx.git`
+engine (gix — no `git` binary is spawned, and nothing blocks: every op is a
+promise settled off the editor tick), builds a path → status map, and paints
+a gutter sign per changed file plus a dirty dot on every directory that
 contains a change. It re-fetches on `BufWritePost`.
 
 >
@@ -423,8 +424,18 @@ contains a change. It re-fetches on `BufWritePost`.
     •   a directory containing a change
 <
 
-A non-git directory (or a missing `git`) simply leaves the tree unmarked; with
-`git = false` — the default — none of it runs.
+It uses `nx.git`, not `nx.git_local`, on purpose: the status has to describe
+the files the tree is showing, so in a daemon or remote session it runs where
+those files live. `nx.git_local` would always answer about the client's disk
+and mark the wrong repo.
+
+The tree root need not be the repository root — the repo is discovered from
+it, so a tree rooted at a subdirectory is marked correctly.
+
+A directory that is not inside a repository simply leaves the tree unmarked and
+stays quiet; any other failure (a broken repo, or a serverless web session with
+no git engine) is surfaced. With `git = false` — the default — none of it
+runs.
 
 
 ==============================================================================
