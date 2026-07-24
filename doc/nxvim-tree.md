@@ -222,6 +222,10 @@ built from the same actions as the keys, so it always matches your bindings. It 
 focused, since a right-click does not focus a window: left-click into the sidebar first, or it is
 already focused after any other interaction.
 
+Like every `nx.ui.select` list, the menu opens NOSELECT — nothing is highlighted, so a bare `<CR>`
+is inert until you move onto a row (`j` / `<C-n>` / the arrows). Clicking a row does both at once.
+`<Esc>` or `q` dismisses it.
+
 Turn the mouse off — or remap it — like any other key:
 
 ```lua

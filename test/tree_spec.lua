@@ -523,7 +523,12 @@ nx.test.describe("nxvim-tree", function()
       actions.mouse_menu(state, tree.api)
     end)
     t:feed("", { settle = 2 }) -- let the set_cursor + select-open ops drain
-    t:feed("<CR>") -- confirm the first entry ("Expand")
+    -- `nx.ui.select` opens NOSELECT (like the completion popup / wildmenu): with nothing
+    -- highlighted a bare <CR> is inert, by design. Navigate onto the first entry
+    -- ("Expand"), then confirm it — the two beats a keyboard user performs (a click on
+    -- the row does both at once).
+    t:feed("j")
+    t:feed("<CR>")
     nx.test.expect(wait_contains(t, "main.rs")).to_contain("main.rs")
   end)
 
