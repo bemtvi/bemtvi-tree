@@ -415,9 +415,12 @@ local function build(opts)
   local WINHL = "Normal:NvimTreeNormal,EndOfBuffer:NvimTreeEndOfBuffer,"
     .. "CursorLine:NvimTreeCursorLine,CursorLineNr:NvimTreeCursorLineNr"
   nx.dock.opt(M.config.position).winhighlight = WINHL
-  nx.wait_for(function()
-    return tree.view:winid()
-  end, { tries = 100, interval = 10, message = "nxvim-tree: window never appeared for chrome setup" })
+  nx.wait_for(
+    function()
+      return tree.view:winid()
+    end,
+    { tries = 100, interval = 10, message = "nxvim-tree: window never appeared for chrome setup" }
+  )
     :next(function(win)
       -- Also set the remap on the window directly, so a restore slot that isn't a
       -- dock still gets the darker background.
@@ -690,7 +693,7 @@ function M.register_action(key, fn)
       run(function()
         fn(tree, api)
       end)
-    end, { buffer = tree.view:bufnr(), desc = "nxvim-tree: custom" })
+    end, { buffer = tree.view:bufnr(), desc = "nxvim-tree: Custom action" })
   end
 end
 

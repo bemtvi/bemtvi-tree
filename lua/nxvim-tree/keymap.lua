@@ -12,6 +12,7 @@
 -- rather than an unhandled error.
 
 local actions = require("nxvim-tree.actions")
+local config = require("nxvim-tree.config")
 
 local M = {}
 
@@ -26,11 +27,18 @@ function M.install(tree, api)
 
   for key, action in pairs(tree.config.mappings) do
     if action ~= false then
-      local fn, name
+      local fn, label
       if type(action) == "function" then
-        fn, name = action, "custom"
+        -- A user's custom action: no built-in description, so name it generically.
+        fn, label = action, "Custom action"
       else
-        fn, name = actions[action], action
+        fn = actions[action]
+        -- The human description is config.ACTIONS[action]; fall back to the raw
+        -- action name if a new action ever lands without one.
+        label = config.ACTIONS[action]
+        if type(label) ~= "string" then
+          label = action
+        end
         if not fn then
           nx.notify("nxvim-tree: no built-in action '" .. tostring(action) .. "'", 4)
         end
@@ -40,7 +48,7 @@ function M.install(tree, api)
           api.run(function()
             fn(tree, api)
           end)
-        end, { buffer = buf, desc = "nxvim-tree: " .. name })
+        end, { buffer = buf, desc = "nxvim-tree: " .. label })
       end
     end
   end

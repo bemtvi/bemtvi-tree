@@ -134,6 +134,20 @@ nx.test.describe("nxvim-tree", function()
     nx.test.expect(nx.await(fs.exists(model.join(ROOT, "brand_new.txt")))).to_be_truthy()
   end)
 
+  -- The action maps carry a human-readable `desc` (config.ACTIONS), so nxvim's
+  -- keymaps picker / which-key can answer "what does `a` do?" with a real phrase
+  -- rather than the internal action name.
+  nx.test.it("gives each action map a friendly buffer-local desc", function(t)
+    open_ready(t)
+    local buf = tree.bufnr()
+    local by_lhs = {}
+    for _, m in ipairs(nx.keymap.buf_get(buf, "n")) do
+      by_lhs[m.lhs] = m.desc
+    end
+    nx.test.expect(by_lhs["a"]).to_be('nxvim-tree: Create a file (trailing "/" → directory)')
+    nx.test.expect(by_lhs["d"]).to_be("nxvim-tree: Delete the entry (confirms)")
+  end)
+
   nx.test.it("deletes a file with `d` after confirming", function(t)
     open_ready(t)
     t:feed("j"):feed("j") -- root(1) → src/(2) → readme.txt(3)

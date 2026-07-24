@@ -11,38 +11,46 @@
 
 local M = {}
 
--- The mappable action names. A `mappings` entry's value must be one of these (a
--- built-in action), a function (a custom action `fn(api)`), or `false` (disable the
--- key). Kept here so `merge` can reject an unknown action-name string up front.
+-- The mappable action names, each mapped to a human-readable description. A
+-- `mappings` entry's value must be one of these keys (a built-in action), a function
+-- (a custom action `fn(api)`), or `false` (disable the key). Kept here so `merge` can
+-- reject an unknown action-name string up front (any non-empty string is truthy, so
+-- the lookup still works as a membership test).
+--
+-- The descriptions are the single source of truth for "what does this key do": the
+-- keymap installer (keymap.lua) passes each into the map's `desc` as
+-- `"nxvim-tree: <description>"`, which is what nxvim's built-in keymaps picker
+-- (`<leader>fk`) and the which-key popup surface. Keep them a short verb phrase so
+-- those help surfaces read cleanly.
 M.ACTIONS = {
-  select = true, -- open a file / toggle a directory (the <CR> action)
-  mouse_click = true, -- single left-click: toggle the directory under the pointer
-  mouse_open = true, -- double left-click: open the file under the pointer
-  mouse_menu = true, -- right-click: a context menu for the node under the pointer
-  open_split = true, -- open the file in a horizontal split
-  open_vsplit = true, -- open the file in a vertical split
-  open_tab = true, -- open the file in a new tab
-  expand = true, -- expand the directory under the cursor
-  collapse = true, -- collapse the directory (or jump to the parent)
-  expand_all = true, -- recursively expand every directory
-  collapse_all = true, -- collapse everything back to the root
-  parent = true, -- move the cursor to the parent directory's node
-  create = true, -- create a file (trailing "/" → directory)
-  rename = true, -- rename the entry under the cursor
-  delete = true, -- delete the entry (confirms)
-  cut = true, -- mark the entry to be MOVED on the next paste
-  copy = true, -- mark the entry to be COPIED on the next paste
-  paste = true, -- move/copy the marked entry under the cursor's directory
-  clear_clipboard = true, -- forget a pending cut/copy
-  yank_path = true, -- yank the absolute path to the " and + registers
-  refresh = true, -- re-scan the whole tree
-  toggle_hidden = true, -- show/hide dotfiles
-  change_root = true, -- make the directory under the cursor the new root
-  up_root = true, -- make the parent of the current root the new root
-  reveal = true, -- reveal the file open in the main window
-  filter = true, -- prompt for a name filter
-  clear_filter = true, -- drop an active filter
-  close = true, -- hide the tree and return to the editor
+  select = "Open a file / toggle a directory",
+  mouse_click = "Single left-click: toggle the directory under the pointer",
+  mouse_open = "Double left-click: open the file under the pointer",
+  mouse_menu = "Right-click: a context menu for the node under the pointer",
+  open_split = "Open the file in a horizontal split",
+  open_vsplit = "Open the file in a vertical split",
+  open_tab = "Open the file in a new tab",
+  expand = "Expand the directory under the cursor",
+  collapse = "Collapse the directory (or jump to the parent)",
+  expand_all = "Recursively expand every directory",
+  collapse_all = "Collapse everything back to the root",
+  parent = "Move the cursor to the parent directory's node",
+  create = 'Create a file (trailing "/" → directory)',
+  rename = "Rename the entry under the cursor",
+  delete = "Delete the entry (confirms)",
+  cut = "Mark the entry to be moved on the next paste",
+  copy = "Mark the entry to be copied on the next paste",
+  paste = "Move/copy the marked entry under the cursor's directory",
+  clear_clipboard = "Forget a pending cut/copy",
+  yank_path = 'Yank the absolute path to the " and + registers',
+  refresh = "Re-scan the whole tree",
+  toggle_hidden = "Show/hide dotfiles",
+  change_root = "Make the directory under the cursor the new root",
+  up_root = "Make the parent of the current root the new root",
+  reveal = "Reveal the file open in the main window",
+  filter = "Prompt for a name filter",
+  clear_filter = "Drop an active filter",
+  close = "Hide the tree and return to the editor",
 }
 
 -- The built-in default key bindings (normal mode, buffer-local on the tree). A user
