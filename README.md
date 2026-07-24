@@ -5,11 +5,10 @@ A fast, dockable, fully-featured **file explorer** for
 
 It is built entirely on the native `nx.*` plugin API (ADR 0002): no buffer-mutation
 hacks, no bespoke rendering loop. The tree's lines are owned by a read-only
-[`nx.view`](https://github.com/davidrios/nxvim) surface, the filesystem work goes
-through the promise `nx.fs` API (with a per-directory watch for live refresh), files open
-in the **main editor** via `nx.open`, and every glyph / guide / git sign is an
-extmark. That's the point: a real explorer, written the way a plugin author would
-write it.
+`nx.view` surface, the filesystem work goes through the promise `nx.fs` API (with a
+per-directory watch for live refresh), files open in the **main editor** via
+`nx.open`, and every glyph / guide / git sign is an extmark. That's the point: a real
+explorer, written the way a plugin author would write it.
 
 ```
  ~/code/sample
@@ -21,30 +20,13 @@ write it.
  󰈙 readme.txt
 ```
 
-## Features
-
-- **Lazy, watched tree** — directories scandir on first expand; each expanded
-  directory gets its own `nx.fs` watch that auto-refreshes it on disk changes — only
-  what's visible is watched, so a huge collapsed subtree costs nothing (toggle with
-  `watch`).
-- **Open anywhere** — `<CR>`/`o` opens in the main window; `s`/`v`/`t` in a
-  split / vsplit / tab.
-- **Mouse** — single-click a directory to expand/collapse it, double-click a file to
-  open it, right-click any entry for a context menu of operations, and the wheel scrolls
-  the sidebar (all configurable / disable-able like any key).
-- **Full file ops** — create (`a`), rename (`r`), delete (`d`, confirmed), cut (`x`),
-  copy (`c`), paste (`p`), yank path (`y`).
-- **Navigation** — expand/collapse (`l`/`h`), expand-all/collapse-all (`E`/`W`),
-  jump to parent (`P`), change root in/out (`>`/`<`), reveal the current file (`f`).
-- **Name filter** — `/` narrows to matches and their ancestors; `<Esc>` clears.
-- **Icons** — Nerd-Font glyphs per extension/filename, with an ASCII fallback
-  (`icons = false`) for plain terminals.
-- **Git status** (opt-in) — `git = true` colours changed entries and marks dirty
-  directories, refreshed on save.
-- **Follow** (opt-in) — `follow = true` keeps the tree cursor on the file you're
-  editing.
-- **Extensible** — custom icons, per-node decorators, rebindable/added keys, and an
-  `on_attach` hook (see [Extending](#extending)).
+- **Lazy, watched tree** — scandir on first expand; only visible directories are watched.
+- **Open anywhere** — main window, split, vsplit, or tab.
+- **Mouse** — click to expand, double-click to open, right-click for a context menu.
+- **Full file ops** — create, rename, delete, cut, copy, paste, yank path.
+- **Name filter**, **Nerd-Font icons** (with an ASCII fallback), opt-in **git status**
+  and **follow**, and cross-session **persistence**.
+- **Extensible** — custom icons, per-node decorators, rebindable keys, `on_attach`.
 
 ## Install
 
@@ -63,200 +45,17 @@ nx.plugins({
 
 Then run `:PluginSync` to clone it, and press `<leader>e` (or run `:Tree`).
 
-## Configuration
+## Documentation
 
-`setup()` takes an optional table; the defaults are:
+Full docs — every `setup()` option, session persistence, the commands, the complete
+key and mouse bindings, the extension seams (icons, decorators, actions, `on_attach`),
+the `NvimTree*` highlight groups, and the module API — live in the help file. The same
+source renders both on GitHub and in the editor:
 
-```lua
-require("nxvim-tree").setup({
-  root = nil,            -- tree root path (default: the editor's cwd at first open)
-  position = "left",     -- dock side: "left" | "right"
-  width = 32,            -- sidebar columns
-  hidden = false,        -- show dotfiles?
-  watch = true,          -- auto-refresh on filesystem changes
-  follow = false,        -- reveal the active file as you switch buffers
-  git = false,           -- colour entries by git status
-  dirs_first = true,     -- sort directories ahead of files
-  icons = true,          -- Nerd-Font glyphs (false → ASCII markers)
-  toggle_key = "<leader>e", -- global toggle keymap (false to skip)
-  open_on_start = false, -- open the tree as soon as setup() runs
-  persist = true,        -- restore the sidebar across a session (see below)
-  mappings = { ... },    -- key → action (see below)
-  highlights = {},       -- highlight-group overrides
-  icon_overrides = {},   -- extra icons, merged into the registry
-  on_attach = nil,       -- fn(api, bufnr): run once the tree buffer exists
-})
-```
-
-`setup()` is re-runnable — calling it again is a full reconfigure (merged fresh from
-the defaults), re-applying config, highlights, and commands without mounting a second
-tree.
-
-### Session persistence
-
-With `persist = true` (the default) the sidebar rides a **workspace session**: on restart
-nxvim-tree reopens it in its dock, at the same root, with the same directories expanded and
-the cursor back on the same node. The editor round-trips only a stable id and the view's
-dock slot; the plugin keeps the actual snapshot (root + expanded dirs + cursor) in its own
-isolated [`nx.shada`](https://github.com/davidrios/nxvim) slice and rebuilds the content in
-an `nx.view.on_restore` handler — a stale snapshot whose directory has since vanished
-degrades gracefully (the missing dir is skipped, never a failed restore).
-
-It takes effect when the **session itself is captured**, which is a launch-time choice:
-
-```lua
-nx.shada.save_layout(true) -- opt the window/tab layout into the session capture
-```
-
-```sh
-nxvim --workspace .        -- run session-scoped (captures + restores the layout)
-```
-
-Without those, the persist id simply rides along and nothing is restored — exactly like
-any other window. Set `persist = false` to opt out entirely.
-
-### Commands
-
-| Command             | Action                                  |
-| ------------------- | --------------------------------------- |
-| `:Tree`             | toggle the sidebar                      |
-| `:TreeOpen`         | open + focus the sidebar                |
-| `:TreeClose`        | hide the sidebar                        |
-| `:TreeRefresh`      | re-scan the whole tree                  |
-| `:TreeReveal`       | reveal the file in the current window   |
-
-### Key bindings
-
-All bindings are buffer-local on the tree and fully configurable through
-`opts.mappings` — a `key → action` table. A value is a built-in action name (below),
-a function `fn(tree, api)` for a custom action, or `false` to disable a default:
-
-```lua
-require("nxvim-tree").setup({
-  mappings = {
-    ["."] = "change_root", -- add a binding
-    s = false,             -- disable the default split-open
-    ["g?"] = function(_tree, api) api.reveal() end, -- a custom action
-  },
-})
-```
-
-| Key       | Action          | Key   | Action            |
-| --------- | --------------- | ----- | ----------------- |
-| `<CR>`/`o`| `select`        | `a`   | `create`          |
-| `l`       | `expand`        | `r`   | `rename`          |
-| `h`       | `collapse`      | `d`   | `delete`          |
-| `s`       | `open_split`    | `x`   | `cut`             |
-| `v`       | `open_vsplit`   | `c`   | `copy`            |
-| `t`       | `open_tab`      | `p`   | `paste`           |
-| `E`       | `expand_all`    | `y`   | `yank_path`       |
-| `W`       | `collapse_all`  | `R`   | `refresh`         |
-| `P`       | `parent`        | `H`   | `toggle_hidden`   |
-| `>`       | `change_root`   | `f`   | `reveal`          |
-| `<`       | `up_root`       | `/`   | `filter`          |
-| `q`       | `close`         | `<Esc>` | `clear_filter`  |
-
-The full list of action names is `require("nxvim-tree.config").ACTIONS`.
-
-**Mouse** is on by default: a **single click** on a directory expands / collapses it
-(`<LeftMouse>` → `mouse_click`), a **double click** on a file opens it in the main
-editor (`<2-LeftMouse>` → `mouse_open`), a **right click** on any entry pops a context
-menu of operations for it (`<RightMouse>` → `mouse_menu`), and the wheel scrolls the
-sidebar. Files don't open on a single click, so a stray click never opens a buffer.
-
-The context menu is context-aware — open / split / tab for a file, expand / new / set-root
-for a directory, the file ops (rename, delete, cut, copy, paste, copy-path) where they
-apply — and is built from the same actions as the keys, so it always matches your
-bindings. (It needs the tree focused, since a right-click doesn't focus a window;
-left-click into the sidebar first, or it's already focused after any other interaction.)
-
-Turn the mouse off — or remap it — like any other key, e.g. `mappings = {
-["<LeftMouse>"] = false, ["<2-LeftMouse>"] = false, ["<RightMouse>"] = false }`, or map
-`["<LeftMouse>"] = "select"` to open files on a single click too.
-
-## Extending
-
-The plugin is built to be extended without forking it.
-
-**Custom icons** — extend the extension/filename registry:
-
-```lua
-require("nxvim-tree").register_icons({
-  conf = { glyph = "\u{e615}", hl = "NxTreeIconDefault" },
-  name = { [".env"] = { glyph = "\u{f462}", hl = "NxTreeIconText" } },
-})
-```
-
-**Decorators** — add a sign / highlight / virtual-text per node. A decorator is
-`fn(node) -> { sign_text=, sign_hl=, hl=, virt_text= }` (or `nil`). The built-in git
-module is just a decorator:
-
-```lua
-require("nxvim-tree").register_decorator(function(node)
-  if node.name == "TODO.md" then
-    return { virt_text = { { "  ←", "WarningMsg" } } }
-  end
-end)
-```
-
-**Custom actions** — bind a key to `fn(tree, api)`, run inside the async
-error-surfacing wrapper (so it can `nx.await` freely):
-
-```lua
-require("nxvim-tree").register_action("gx", function(_tree, api)
-  local node = api.node()       -- the node under the cursor
-  if node then nx.ui.open(node.path) end
-end)
-```
-
-`api` exposes `render(opts)`, `run(body)`, `reveal(path)`, `refresh()`, `close()`,
-`set_root(path)`, `register_decorator(fn)`, `root()`, `state()` (the tree) and
-`node()` (the node under the cursor).
-
-**`on_attach`** — run once when the tree buffer exists (for buffer-scoped maps /
-options): `on_attach = function(api, bufnr) ... end`.
-
-### Highlights
-
-The explorer uses the **canonical `NvimTree*` highlight group names** from
-nvim-tree.lua — so a ported colorscheme that already styles those groups (e.g.
-[catppuccin](https://github.com/catppuccin)'s nvim-tree integration) themes the tree
-**unmodified**. The groups are:
-
-| Group                       | What it colors                         |
-| --------------------------- | -------------------------------------- |
-| `NvimTreeRootFolder`        | the root header line                   |
-| `NvimTreeFolderName`        | a closed directory name                |
-| `NvimTreeOpenedFolderName`  | an expanded directory name             |
-| `NvimTreeEmptyFolderName`   | a directory with no children           |
-| `NvimTreeFolderIcon`        | the folder glyph                       |
-| `NvimTreeIndentMarker`      | the tree guide lines                   |
-| `NvimTreeSymlink`           | a symlink name                         |
-| `NvimTreeOpenedFile`        | a file currently open in a buffer      |
-| `NvimTreeSpecialFile`       | README / Makefile / Cargo.toml …       |
-| `NvimTreeImageFile`         | image files                            |
-| `NvimTreeCutHL` / `…CopiedHL` | a node marked for move / copy        |
-| `NvimTreeLiveFilterValue`   | the active `/filter` tag               |
-| `NvimTreeGitNew` / `…Dirty` / `…Staged` / `…Deleted` | git status |
-
-A plain file's name is left unhighlighted so it inherits the window's `Normal`,
-exactly as in nvim-tree. These groups are defined only as a **fallback** — a
-colorscheme (or your `opts.highlights` override) that defines them wins, regardless
-of load order:
-
-```lua
-require("nxvim-tree").setup({
-  highlights = { NvimTreeRootFolder = { fg = "#f9e2af", bold = true } },
-})
-```
-
-Per-extension **icon colors** have no NvimTree equivalent (nvim-tree colors icons via
-nvim-web-devicons), so those live under the plugin's own `NxTreeIcon*` namespace and
-can likewise be overridden.
+- In editor: `:help nxvim-tree`
+- On GitHub: [doc/nxvim-tree.md](./doc/nxvim-tree.md) (the help source)
 
 ## Trying it locally
-
-This repo ships a runnable demo:
 
 ```sh
 NXVIM_CONFIG=examples nxvim examples/sample/readme.txt
@@ -265,11 +64,7 @@ NXVIM_CONFIG=examples nxvim examples/sample/readme.txt
 (run from the repo root — the demo config in `examples/init.lua` loads the plugin
 straight from this checkout).
 
-## Tests
-
-The plugin carries a Lua test suite (`test/*_spec.lua`) built on nxvim's native
-`nx.test` framework — pure-Lua tests that drive a real editor over a temp filesystem.
-Run them headlessly:
+## Development
 
 ```sh
 nxvim --test-plugin .
@@ -278,7 +73,11 @@ nxvim --test-plugin .
 The suite covers the config merge/validation, the model (lazy load, sort, hidden
 filter, refresh identity), icon and git classification, and the end-to-end flows
 (render, expand/collapse, hidden toggle, filter, create, delete, open, change-root,
-and the mouse click / right-click-menu gestures) driven with real keys.
+and the mouse gestures) driven with real keys.
+
+The vimdoc `doc/nxvim-tree.txt` is **generated** from `doc/nxvim-tree.md` via
+[panvimdoc](https://github.com/kdheepak/panvimdoc): edit the `.md`, then run
+`bash scripts/gen-vimdoc.sh` (needs `pandoc` + `git`). Never edit the `.txt` by hand.
 
 ## License
 

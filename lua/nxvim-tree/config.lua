@@ -13,7 +13,8 @@ local M = {}
 
 -- The mappable action names, each mapped to a human-readable description. A
 -- `mappings` entry's value must be one of these keys (a built-in action), a function
--- (a custom action `fn(api)`), or `false` (disable the key). Kept here so `merge` can
+-- (a custom action `fn(tree, api)`, called like a built-in — see keymap.lua), or
+-- `false` (disable the key). Kept here so `merge` can
 -- reject an unknown action-name string up front (any non-empty string is truthy, so
 -- the lookup still works as a membership test).
 --
