@@ -52,28 +52,14 @@ end
 -- the tree may be rooted at a subdirectory (or above the repo), so joining against
 -- anything else would key the map on paths that never match a node.
 --
--- Two normalizations bridge the engine's shape to porcelain's, which `classify`
--- speaks: the engine reports a staged change and an unstaged change to the same file
--- as two SEPARATE entries (porcelain merges them into one "MM" line), so the columns
--- are accumulated per path first; and it spells untracked as a bare `"?"` worktree
--- column, which is porcelain's `"??"`.
+-- `nx.git.status` hands back exactly one entry per path with both porcelain columns
+-- filled (an untracked file reads `??`), so the XY code is a plain concatenation —
+-- there is nothing to fold or re-spell here.
 function M.index(root, entries)
-  local codes = {} -- abspath -> { x = <index col>, y = <worktree col> }
+  local file_status, dir_dirty = {}, {}
   for _, e in ipairs(entries or {}) do
     local abs = join(root, e.path)
-    local c = codes[abs] or { x = " ", y = " " }
-    if e.index and e.index ~= "" and e.index ~= " " then
-      c.x = e.index
-    end
-    if e.worktree and e.worktree ~= "" and e.worktree ~= " " then
-      c.y = e.worktree
-    end
-    codes[abs] = c
-  end
-
-  local file_status, dir_dirty = {}, {}
-  for abs, c in pairs(codes) do
-    file_status[abs] = M.classify(c.y == "?" and "??" or (c.x .. c.y))
+    file_status[abs] = M.classify(e.index .. e.worktree)
     local p = abs:match("(.*)/[^/]+$") -- propagate the dirty flag to ancestors
     while p and #p >= #root do
       dir_dirty[p] = true

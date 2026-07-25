@@ -28,9 +28,9 @@ nx.test.describe("nxvim-tree.git.classify", function()
   end)
 end)
 
--- `nx.git.status` hands back one entry per CHANGE, with repo-relative paths and the
--- index / worktree columns split — not porcelain's merged XY line. `index()` bridges
--- that shape onto the maps the decorator reads.
+-- `nx.git.status` hands back exactly one entry per PATH, with repo-relative paths and
+-- both porcelain columns filled. `index()` turns that into the maps the decorator
+-- reads — the absolute-path keying and the ancestor walk.
 nx.test.describe("nxvim-tree.git.index", function()
   local ROOT = "/repo"
 
@@ -40,31 +40,29 @@ nx.test.describe("nxvim-tree.git.index", function()
     nx.test.expect(files["src/main.rs"]).to_be(nil)
   end)
 
-  nx.test.it("spells an untracked entry's bare '?' worktree column as porcelain '??'", function()
-    -- The engine reports untracked as worktree = "?" with an empty index column; read
-    -- literally that is neither "??" nor a known letter, and would misclassify as a
-    -- plain modification.
-    local files = git.index(ROOT, { { path = "new.txt", index = " ", worktree = "?" } })
+  nx.test.it("marks an untracked '??' entry as new", function()
+    local files = git.index(ROOT, { { path = "new.txt", index = "?", worktree = "?" } })
     nx.test.expect(files["/repo/new.txt"].hl).to_be("NvimTreeGitNew")
     nx.test.expect(files["/repo/new.txt"].sign).to_be("+")
   end)
 
-  nx.test.it("merges a file's separate staged and unstaged entries into one status", function()
-    -- A file staged AND then modified arrives as TWO entries; porcelain would call it
-    -- "MM". Merged, the worktree column is set, so it is dirty rather than staged-only.
-    -- Asserted in BOTH orders: the engine's iteration order is not ours to rely on, and
-    -- a last-entry-wins bug survives one order while corrupting the other.
-    local staged_first = git.index(ROOT, {
-      { path = "a.txt", index = "M", worktree = " " },
-      { path = "a.txt", index = " ", worktree = "M" },
-    })
-    nx.test.expect(staged_first["/repo/a.txt"].hl).to_be("NvimTreeGitDirty")
+  nx.test.it("reads a staged-and-modified 'MM' entry as dirty", function()
+    -- The engine folds a path's two halves, so both columns arrive on one entry; an
+    -- unstaged edit on top of a staged one is dirty, not staged-only.
+    local files = git.index(ROOT, { { path = "a.txt", index = "M", worktree = "M" } })
+    nx.test.expect(files["/repo/a.txt"].hl).to_be("NvimTreeGitDirty")
+  end)
 
-    local worktree_first = git.index(ROOT, {
-      { path = "a.txt", index = " ", worktree = "M" },
-      { path = "a.txt", index = "M", worktree = " " },
-    })
-    nx.test.expect(worktree_first["/repo/a.txt"].hl).to_be("NvimTreeGitDirty")
+  nx.test.it("tints a rename by which column it lands in", function()
+    -- A STAGED rename is "R " — staged-only, so it tints as staged. An UNSTAGED rename
+    -- (" R", which nxvim detects and git's own porcelain does not) differs from the
+    -- index, so it reads as a modification. Neither is a special case in classify; this
+    -- pins the behaviour now that renames actually reach us.
+    local staged = git.index(ROOT, { { path = "new.txt", index = "R", worktree = " " } })
+    nx.test.expect(staged["/repo/new.txt"].hl).to_be("NvimTreeGitStaged")
+
+    local unstaged = git.index(ROOT, { { path = "new.txt", index = " ", worktree = "R" } })
+    nx.test.expect(unstaged["/repo/new.txt"].hl).to_be("NvimTreeGitDirty")
   end)
 
   nx.test.it("keeps a staged-only change staged", function()
