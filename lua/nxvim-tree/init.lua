@@ -98,6 +98,24 @@ end
 -- Reconcile the per-directory watch set after each render (forward-declared so the
 -- render wrapper can call it; defined below alongside the watch helpers).
 local reconcile_watches
+-- Keep the sign gutter permanently open on the tree window — but ONLY inside a git
+-- repository, which is why this is driven by the git module's first successful status
+-- rather than set with the rest of the window chrome at build time.
+--
+-- The gutter is where the git status signs land. Left at the editor's `signcolumn=auto`
+-- default, the column materializes the moment the first sign appears and collapses when the
+-- last one goes, sliding the whole sidebar — every icon and filename — one column sideways
+-- as you edit. Reserving it is what makes the name's start column genuinely fixed, which is
+-- the point of the whole git presentation. Outside a repo no sign can ever appear, so
+-- reserving there would only waste a column: the tree keeps the editor's default.
+-- (`"yes"` is one always-present column — the same thing as `yes:1`, which the option
+-- normalizes to `"yes"` when read back.)
+local function reserve_gutter()
+  local win = tree and tree.view:winid()
+  if win then
+    nx.wo[win].signcolumn = "yes"
+  end
+end
 -- The session-snapshot helpers the render wrapper persists through (defined below in the
 -- "session snapshot" section, forward-declared here so render can reach them).
 local expanded_paths, write_session
@@ -137,6 +155,17 @@ local api = {
   -- The current tree root path, or nil when the tree isn't built (git uses this).
   root = function()
     return tree and tree.root.path
+  end,
+  -- Publish the git module's repo state — `{ root, ignored }` — onto the tree. Being
+  -- called at all means we ARE inside a repository, which is what gates the reserved
+  -- gutter (see reserve_gutter). The ignored set is read by the render's hide filter and
+  -- the decorator.
+  set_git_state = function(state)
+    if not tree then
+      return
+    end
+    tree._git = state
+    reserve_gutter()
   end,
   -- Introspection for custom actions: the tree state and the node under the cursor.
   state = function()
@@ -292,6 +321,10 @@ function write_session()
     -- choice. Normalized to a real boolean so `false` persists as `false`, not as an
     -- absent key (which build() reads as "no saved preference").
     hidden = tree.config.hidden == true,
+    -- Same story for the `I` toggle: a runtime preference the next session's config merge
+    -- would otherwise reset. Stored as its string mode, so an unknown future value is
+    -- simply ignored on the way back in rather than silently read as a boolean.
+    git_ignored = tree.config.git_ignored,
   })
 end
 
@@ -391,6 +424,9 @@ local function build(opts)
   if restore and type(restore.hidden) == "boolean" then
     M.config.hidden = restore.hidden
   end
+  if restore and config.GIT_IGNORED_MODES[restore.git_ignored] then
+    M.config.git_ignored = restore.git_ignored
+  end
 
   tree = {
     root = model.root((restore and restore.root) or M.config.root or vim.fn.getcwd()),
@@ -410,6 +446,10 @@ local function build(opts)
     _watches = {}, -- path → { node, handle, stopped }, reconciled after each render
     _expanded = nil, -- cached expanded-dir snapshot (recomputed each structural render)
     _cursor_path = nil, -- the node under the cursor, tracked for the session snapshot
+    -- `{ root, ignored }` once the git module's first status lands (nil outside a repo,
+    -- or before it does): the repo root + git-ignored path set. Read by the render's
+    -- hide-ignored filter; its arrival is also what reserves the sign gutter.
+    _git = nil,
   }
   tree.view:on_select(function()
     run(function()
@@ -442,6 +482,11 @@ local function build(opts)
       -- dock still gets the darker background.
       nx.wo[win].winhighlight = WINHL
       nx.wo[win].cursorline = true
+      -- A repo whose status already landed (a rebuild inside a live session) re-pins the
+      -- gutter here, since this fresh window starts at the default `signcolumn`.
+      if tree._git then
+        reserve_gutter()
+      end
     end)
     :catch(function() end)
 
@@ -794,6 +839,13 @@ function M.setup(opts)
   -- part of the restored layout still honours the last `H`.
   if persist_enabled() and pending_restore and type(pending_restore.hidden) == "boolean" then
     M.config.hidden = pending_restore.hidden
+  end
+  if
+    persist_enabled()
+    and pending_restore
+    and config.GIT_IGNORED_MODES[pending_restore.git_ignored]
+  then
+    M.config.git_ignored = pending_restore.git_ignored
   end
   hl_applied = false
   highlights.apply(M.config.highlights)

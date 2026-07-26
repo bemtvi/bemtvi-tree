@@ -65,6 +65,26 @@ local function apply_filter(entries, filter)
   return out
 end
 
+-- Drop git-ignored entries (`git_ignored = "hide"`). A render-time filter, NOT a filter
+-- in the model's scandir: the nodes stay loaded, so the `I` toggle flips instantly with no
+-- filesystem round-trip and no loss of the expand state under a directory you un-hide.
+-- The root itself is never dropped — a tree rooted inside an ignored directory would
+-- otherwise render as nothing at all.
+local function apply_git_ignored(entries, tree)
+  local state = tree._git
+  if not (state and state.root) then
+    return entries -- not in a repository (or git status hasn't landed yet)
+  end
+  local git = require("nxvim-tree.git")
+  local out = {}
+  for _, n in ipairs(entries) do
+    if n.depth == 0 or not git.is_ignored(state.ignored, n.path, state.root) then
+      out[#out + 1] = n
+    end
+  end
+  return out
+end
+
 -- The root header label: the root path made relative to the cwd — its basename when
 -- the root *is* the cwd, a cwd-relative subpath when under it, else ~-relative (home),
 -- else the absolute path. Keeps the header short and anchored to where you launched.
@@ -141,6 +161,9 @@ function M.render(tree, opts)
   end
 
   local entries = model.flatten(tree.root)
+  if tree.config.git_ignored == "hide" then
+    entries = apply_git_ignored(entries, tree)
+  end
   local filtering = tree.filter and tree.filter ~= ""
   if filtering then
     entries = apply_filter(entries, tree.filter)

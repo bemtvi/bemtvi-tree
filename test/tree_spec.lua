@@ -62,6 +62,10 @@ end
 nx.test.describe("nxvim-tree", function()
   nx.test.before_each(function()
     tree.destroy()
+    -- The filter is bound to `<leader>/`, and `nx.keymap.set` bakes the leader in force
+    -- at INSTALL time (which is the tree build, below/later — not now). Pin it to space
+    -- so the tests can feed a stable `" /"` instead of depending on vim's `\` default.
+    vim.g.mapleader = " "
     ROOT = nx.test.tempdir()
     nx.await(fs.write(model.join(ROOT, "readme.txt"), "hi"))
     nx.await(fs.mkdir(model.join(ROOT, "src")))
@@ -105,9 +109,9 @@ nx.test.describe("nxvim-tree", function()
     nx.test.expect(wait_contains(t, ".secret")).to_contain(".secret")
   end)
 
-  nx.test.it("filters by name with / and clears with <Esc>", function(t)
+  nx.test.it("filters by name with <leader>/ and clears with <Esc>", function(t)
     open_ready(t)
-    t:feed("/")
+    t:feed(" /") -- <leader>/ (mapleader is pinned to space in before_each)
     t:wait_for(function()
       return t:mode() == "c"
     end)
@@ -121,6 +125,42 @@ nx.test.describe("nxvim-tree", function()
     -- Clear the filter; src/ comes back.
     t:feed("<Esc>")
     nx.test.expect(wait_contains(t, "src/")).to_contain("src/")
+  end)
+
+  -- The tree buffer is an ordinary buffer, so a bare `/` must stay the EDITOR's search —
+  -- the name filter lives on `<leader>/`. Both open cmdline mode, so the assertion is on
+  -- what the search actually does: it moves the cursor to the matching row and leaves the
+  -- tree fully rendered, where the filter would have pruned non-matching rows away.
+  nx.test.it("leaves a bare / to the editor's own buffer search, not the filter", function(t)
+    open_ready(t)
+    local before = buf_text()
+    t:feed("/")
+    t:wait_for(function()
+      return t:mode() == "c"
+    end)
+    t:feed("main<CR>") -- searches for main.rs — which is NOT visible (src/ is collapsed)
+    t:feed("")
+    -- A filter on "main" would have pruned readme.txt; the search leaves every row.
+    nx.test.expect(buf_text()).to_be(before)
+    nx.test.expect(buf_text()).to_contain("readme.txt")
+
+    -- And the search really is live in this buffer: expand src/, then `/` onto main.rs
+    -- lands the cursor on its row.
+    t:feed("j") -- onto src/
+    t:feed("<CR>") -- expand it
+    wait_contains(t, "main.rs")
+    t:feed("gg")
+    t:feed("/")
+    t:wait_for(function()
+      return t:mode() == "c"
+    end)
+    t:feed("main.rs<CR>")
+    local line = t:wait_for(function()
+      local l = tree.api.state().view:line()
+      local node = l and tree.api.state().flat[l]
+      return node and node.path:find("main.rs", 1, true) and l
+    end)
+    nx.test.expect(line).to_be_truthy()
   end)
 
   nx.test.it("creates a file with `a`", function(t)

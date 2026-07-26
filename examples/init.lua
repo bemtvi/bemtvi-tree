@@ -27,7 +27,9 @@
 --   r  rename   d  delete (confirms)
 --   x  cut      c  copy      p  paste (move/copy under the cursor's dir)
 --   y                        yank the absolute path to the " and + registers
---   / filter (Esc clears)    R  refresh        H  toggle hidden files
+--   <leader>/ filter         R  refresh        H  toggle hidden files
+--     (Esc clears it; a bare / stays the editor's own buffer search)
+--   I                        git-ignored entries: dimmed <-> hidden
 --   > / <                    descend into / ascend out of the root directory
 --   f                        reveal the file open in the main window
 --   q                        close the sidebar

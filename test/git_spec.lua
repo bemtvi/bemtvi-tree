@@ -85,3 +85,60 @@ nx.test.describe("nxvim-tree.git.index", function()
     nx.test.expect(next(dirs)).to_be(nil)
   end)
 end)
+
+-- Git-ignored entries (`!!`, from `nx.git.status{ ignored = true }`) are the one status
+-- that is NOT a change: they carry a dim name and no gutter sign, they must not dirty
+-- their ancestors, and — because the engine collapses a wholly-ignored directory into a
+-- single entry — membership is a PREFIX test, not a lookup.
+nx.test.describe("nxvim-tree.git ignored", function()
+  local ROOT = "/repo"
+
+  nx.test.it("classifies '!!' as ignored, with no sign", function()
+    nx.test.expect(git.classify("!!").hl).to_be("NvimTreeGitIgnored")
+    -- No gutter glyph: a sign on every file in a `target/` is noise.
+    nx.test.expect(git.classify("!!").sign).to_be(nil)
+  end)
+
+  nx.test.it("indexes ignored paths apart from changes, dirtying no ancestors", function()
+    local files, dirs, ignored = git.index(ROOT, {
+      { path = "target", index = "!", worktree = "!" },
+      { path = "deep/noise.log", index = "!", worktree = "!" },
+    })
+    nx.test.expect(ignored["/repo/target"]).to_be(true)
+    nx.test.expect(ignored["/repo/deep/noise.log"]).to_be(true)
+    -- NOT a change: no file_status entry, and no dirty dot anywhere up the chain
+    -- (otherwise every clean repo with a `target/` would show a dirty root).
+    nx.test.expect(next(files)).to_be(nil)
+    nx.test.expect(next(dirs)).to_be(nil)
+  end)
+
+  nx.test.it("still indexes real changes alongside ignored entries", function()
+    local files, dirs, ignored = git.index(ROOT, {
+      { path = "target", index = "!", worktree = "!" },
+      { path = "src/main.rs", index = " ", worktree = "M" },
+    })
+    nx.test.expect(ignored["/repo/target"]).to_be(true)
+    nx.test.expect(files["/repo/src/main.rs"].hl).to_be("NvimTreeGitDirty")
+    nx.test.expect(dirs["/repo/src"]).to_be(true)
+    nx.test.expect(ignored["/repo/src/main.rs"]).to_be(nil)
+  end)
+
+  nx.test.it("resolves a collapsed ignored directory for every descendant", function()
+    local _, _, ignored = git.index(ROOT, { { path = "target", index = "!", worktree = "!" } })
+    -- The directory itself, and files at any depth beneath it — the engine reported the
+    -- directory ONCE, so each descendant has to resolve through its ancestors.
+    nx.test.expect(git.is_ignored(ignored, "/repo/target", ROOT)).to_be(true)
+    nx.test.expect(git.is_ignored(ignored, "/repo/target/debug", ROOT)).to_be(true)
+    nx.test.expect(git.is_ignored(ignored, "/repo/target/debug/deps/x.o", ROOT)).to_be(true)
+    -- A sibling is untouched, and a name that merely SHARES the prefix is not a
+    -- descendant (the walk splits on "/", so "targetlike" can never match "target").
+    nx.test.expect(git.is_ignored(ignored, "/repo/src/main.rs", ROOT)).to_be(false)
+    nx.test.expect(git.is_ignored(ignored, "/repo/targetlike/x.o", ROOT)).to_be(false)
+  end)
+
+  nx.test.it("never climbs past the repo root", function()
+    -- An entry named like the repo's PARENT must not make the repo's own files ignored.
+    local ignored = { ["/"] = true, ["/repo"] = true }
+    nx.test.expect(git.is_ignored(ignored, "/repo/src/main.rs", "/repo/src")).to_be(false)
+  end)
+end)

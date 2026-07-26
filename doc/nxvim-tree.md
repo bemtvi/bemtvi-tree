@@ -41,12 +41,18 @@ point: a real explorer, written the way a plugin author would write it.
 - Navigation — expand/collapse (`l` / `h`), expand-all / collapse-all
   (`E` / `W`), jump to parent (`P`), change root in/out (`>` / `<`),
   reveal the current file (`f`).
-- Name filter — `/` narrows to matches and their ancestors; `<Esc>`
-  clears.
+- Name filter — `<leader>/` narrows to matches and their ancestors;
+  `<Esc>` clears. (A bare `/` is left to the editor's own buffer
+  search, since the tree is an ordinary buffer.)
 - Icons — Nerd-Font glyphs per extension and filename, with an ASCII
   fallback (`icons = false`) for plain terminals.
-- Git status (opt-in) — `git = true` colours changed entries and marks
-  dirty directories, refreshed on save.
+- Git status (opt-in) — `git = true` colours each entry's NAME by its
+  status (added / modified / staged / deleted / ignored), puts a matching
+  sign in the gutter, and marks dirty directories — refreshed on save.
+  Nothing is ever inserted between the icon and the name, and inside a
+  repo the sign gutter is held open so the tree never shifts sideways.
+  Ignored entries dim by default; `git_ignored = "hide"` (or the `I`
+  key) drops them instead.
 - Follow (opt-in) — `follow = true` keeps the tree cursor on the file
   you are editing.
 - Extensible — custom icons, per-node decorators, rebindable and added
@@ -82,6 +88,7 @@ require("nxvim-tree").setup({
   watch = true,      -- auto-refresh on filesystem changes
   follow = false,    -- reveal the active file as you switch buffers
   git = false,       -- colour entries by git status
+  git_ignored = "dim",      -- git-ignored entries: "dim" | "hide" (`I` toggles)
   dirs_first = true, -- sort directories ahead of files
   icons = true,      -- Nerd-Font glyphs (false → ASCII markers)
   toggle_key = "<leader>e", -- global toggle keymap (false to skip)
@@ -106,7 +113,8 @@ Out-of-domain values fail LOUD rather than mis-rendering: a `position` that is n
 With `persist = true` (the default) the sidebar rides a workspace session: on restart nxvim-tree
 reopens it in its dock, at the same root, with the same directories expanded and the cursor back on
 the same node. The editor round-trips only a stable id and the view's dock slot; the plugin keeps
-the actual snapshot (root, expanded dirs, cursor, and the `H` dotfile toggle) in its own isolated
+the actual snapshot (root, expanded dirs, cursor, the `H` dotfile toggle, and the `I` ignored mode)
+in its own isolated
 `nx.shada` slice and rebuilds the content in an `nx.view.on_restore` handler. A stale snapshot whose
 directory has since vanished degrades gracefully — the missing dir is skipped, never a failed
 restore.
@@ -124,7 +132,8 @@ nxvim --workspace .        # run session-scoped (captures + restores)
 Without those the persist id simply rides along and the *window* isn't restored, exactly like any
 other window. The dotfile toggle is the exception: it is a preference rather than window state, so
 the saved value beats the configured `hidden` default on every launch — even a plain `:Tree` in a
-session whose sidebar wasn't part of the restored layout. Set `persist = false` to opt out entirely.
+session whose sidebar wasn't part of the restored layout. The `I` ignored mode works the same way.
+Set `persist = false` to opt out entirely.
 
 # Commands
 
@@ -164,10 +173,14 @@ t          open_tab       p       paste
 E          expand_all     y       yank_path
 W          collapse_all   R       refresh
 P          parent         H       toggle_hidden
+                              I       toggle_git_ignored
 >          change_root    f       reveal
-<          up_root        /       filter
-q          close          <Esc>   clear_filter
+<          up_root        <leader>/  filter
+q          close          <Esc>      clear_filter
 ```
+
+A bare `/` is deliberately NOT bound: the tree is an ordinary buffer, so `/` stays the editor's own
+search. Map `["/"] = "filter"` if you prefer the shorter key.
 
 Every mappable action, with what it does (the same descriptions the keymaps carry as their `desc`,
 so `<leader>fk` and the which-key popup read them):
@@ -192,6 +205,7 @@ clear_clipboard   Forget a pending cut/copy
 yank_path         Yank the absolute path to the " and + registers
 refresh           Re-scan the whole tree
 toggle_hidden     Show/hide dotfiles
+toggle_git_ignored  Dim/hide git-ignored entries
 change_root       Make the directory under the cursor the new root
 up_root           Make the parent of the current root the new root
 reveal            Reveal the file open in the main window
@@ -339,6 +353,7 @@ NvimTreeGitNew             untracked / added
 NvimTreeGitDirty           modified (and the dirty-directory dot)
 NvimTreeGitStaged          staged-only
 NvimTreeGitDeleted         deleted
+NvimTreeGitIgnored         git-ignored (dimmed; no gutter sign)
 ```
 
 A plain file's name is left unhighlighted so it inherits the window's `Normal`, exactly as in
@@ -363,16 +378,46 @@ nvim-web-devicons), so those live under the plugin's own `NxTreeIcon*` namespace
 
 With `git = true` the tree reads the repository through the native `nx.git` engine (gix — no `git`
 binary is spawned, and nothing blocks: every op is a promise settled off the editor tick), builds a
-path → status map, and paints a gutter sign per changed file plus a dirty dot on every directory
-that contains a change. It re-fetches on `BufWritePost`.
+path → status map, and paints each entry accordingly. It re-fetches on `BufWritePost`.
+
+A status shows up in two places, neither of which can move the filename:
+
+1. the entry's **name colour**, painted over the name range only;
+2. a **gutter sign**, in the sign column left of the tree guides.
 
 ```
-+   untracked / added      NvimTreeGitNew
-~   modified               NvimTreeGitDirty
-✓   staged-only            NvimTreeGitStaged
--   deleted                NvimTreeGitDeleted
-•   a directory containing a change
+sign   status                 name highlight
++      untracked / added      NvimTreeGitNew
+~      modified               NvimTreeGitDirty
+✓      staged-only            NvimTreeGitStaged
+-      deleted                NvimTreeGitDeleted
+       git-ignored            NvimTreeGitIgnored   (dimmed, no sign)
+•      a directory containing a change
 ```
+
+Nothing is ever inserted between the icon and the name — the name's start column is identical on
+every row, whatever its status. Inside a repository the tree also pins `signcolumn=yes` on its
+window: left at the editor's `auto` default the sign column would appear the moment the first sign
+existed and vanish when the last one went, sliding the whole sidebar one column sideways as you
+edit. Outside a repository no sign can ever appear, so the column is *not* reserved there — a narrow
+sidebar keeps the space.
+
+## Ignored entries
+
+`git_ignored` decides what happens to git-ignored paths:
+
+```lua
+git_ignored = "dim",   -- default: render them in NvimTreeGitIgnored
+git_ignored = "hide",  -- drop them from the tree entirely
+```
+
+`I` toggles between the two live, and the choice persists across sessions (see Persistence). Hiding
+is a render-time filter, so the toggle is instant — no re-scan, and a directory you un-hide keeps
+whatever was expanded under it.
+
+Ignored reporting is an opt-in of `nx.git.status` (`{ ignored = true }`), and the engine reports a
+wholly-ignored directory as ONE entry rather than each of its files, so a `target/` with 50k objects
+costs a single entry. Every path beneath it resolves as ignored by prefix.
 
 It uses `nx.git`, not `nx.git_local`, on purpose: the status has to describe the files the tree is
 showing, so in a daemon or remote session it runs where those files live. `nx.git_local` would

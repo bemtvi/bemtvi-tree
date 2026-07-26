@@ -24,8 +24,13 @@ explorer, written the way a plugin author would write it.
 - **Open anywhere** — main window, split, vsplit, or tab.
 - **Mouse** — click to expand, double-click to open, right-click for a context menu.
 - **Full file ops** — create, rename, delete, cut, copy, paste, yank path.
-- **Name filter**, **Nerd-Font icons** (with an ASCII fallback), opt-in **git status**
-  and **follow**, and cross-session **persistence**.
+- **Name filter** (`<leader>/`, leaving a bare `/` to the editor's own search),
+  **Nerd-Font icons** (with an ASCII fallback), opt-in **follow**, and cross-session
+  **persistence**.
+- **Git status** (opt-in) — an entry's *name* is coloured by its status (added / modified /
+  staged / deleted / ignored) with a matching gutter sign. Nothing is inserted between the
+  icon and the name, and inside a repo the sign gutter is held open, so the filename's
+  column never moves. Ignored entries dim, or hide with `I`.
 - **Extensible** — custom icons, per-node decorators, rebindable keys, `on_attach`.
 
 ## Install

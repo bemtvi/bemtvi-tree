@@ -458,6 +458,23 @@ function M.toggle_hidden(tree, api)
   nx.notify("nxvim-tree: hidden files " .. (tree.config.hidden and "shown" or "hidden"))
 end
 
+-- Flip git-ignored entries between dimmed and hidden. Unlike `toggle_hidden` this needs
+-- NO model refresh: hiding is a render-time filter over the already-loaded nodes (see
+-- render.lua), so the toggle is instant and never re-reads the filesystem.
+function M.toggle_git_ignored(tree, api)
+  tree.config.git_ignored = (tree.config.git_ignored == "hide") and "dim" or "hide"
+  api.render({ restore_cursor = true })
+  if not tree.config.git then
+    -- Say so rather than silently toggling a setting that can have no effect: without
+    -- `git = true` nothing ever computes the ignored set, so neither mode shows anything.
+    return nx.notify("nxvim-tree: git_ignored needs `git = true` to have any effect", 3)
+  end
+  nx.notify(
+    "nxvim-tree: git-ignored entries "
+      .. (tree.config.git_ignored == "hide" and "hidden" or "dimmed")
+  )
+end
+
 function M.reveal(tree, api)
   api.reveal()
 end

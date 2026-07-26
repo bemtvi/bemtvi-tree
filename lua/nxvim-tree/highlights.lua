@@ -51,6 +51,10 @@ M.defaults = {
   NvimTreeGitDirty = { fg = "#f9e2af" }, -- modified (and the dirty-dir dot)
   NvimTreeGitStaged = { fg = "#94e2d5" }, -- staged-only
   NvimTreeGitDeleted = { fg = "#f38ba8" }, -- deleted
+  -- git-ignored: dimmed + italic, and the one status with no gutter sign (see git.lua).
+  -- Deliberately the same muted grey as the tree guides — an ignored `target/` should
+  -- recede rather than compete with the real entries.
+  NvimTreeGitIgnored = { fg = "#6c7086", italic = true },
   -- per-extension icon colors (plugin-private; nvim-tree colors icons via devicons)
   NxTreeIconDefault = { fg = "#9399b2" },
   NxTreeIconRust = { fg = "#fab387" },

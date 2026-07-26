@@ -46,6 +46,7 @@ M.ACTIONS = {
   yank_path = 'Yank the absolute path to the " and + registers',
   refresh = "Re-scan the whole tree",
   toggle_hidden = "Show/hide dotfiles",
+  toggle_git_ignored = "Dim/hide git-ignored entries",
   change_root = "Make the directory under the cursor the new root",
   up_root = "Make the parent of the current root the new root",
   reveal = "Reveal the file open in the main window",
@@ -81,10 +82,14 @@ local DEFAULT_MAPPINGS = {
   y = "yank_path",
   R = "refresh",
   H = "toggle_hidden",
+  I = "toggle_git_ignored", -- nvim-tree's key for the same toggle
   ["<"] = "up_root",
   [">"] = "change_root",
   f = "reveal",
-  ["/"] = "filter",
+  -- The name filter is `<leader>/`, NOT a bare `/`: the tree is an ordinary buffer, so
+  -- `/` must stay the editor's own search. (A user who prefers the bare key can still
+  -- map `["/"] = "filter"`.)
+  ["<leader>/"] = "filter",
   q = "close",
 }
 
@@ -97,6 +102,10 @@ local DEFAULTS = {
   watch = true, -- auto-refresh on filesystem changes
   follow = false, -- auto-reveal the file in the active window as you switch buffers
   git = false, -- enable the built-in git-status decorator
+  -- What to do with git-ignored entries (needs `git = true`): "dim" renders them in
+  -- NvimTreeGitIgnored, "hide" drops them from the tree. The `I` key toggles between the
+  -- two live, and the choice persists across sessions like `hidden`.
+  git_ignored = "dim", -- "dim" | "hide"
   dirs_first = true, -- sort directories ahead of files (else pure alpha)
   icons = true, -- render Nerd-Font glyphs (false → ASCII +/- markers)
   toggle_key = "<leader>e", -- the global toggle keymap (false to skip)
@@ -109,6 +118,11 @@ local DEFAULTS = {
 }
 
 local POSITIONS = { left = true, right = true }
+-- The closed domain of `git_ignored`, exported because init.lua validates the value it
+-- reads back from the session snapshot against the same set (one source of truth, so a
+-- stale/unknown persisted mode is ignored rather than smuggled past `validate`).
+M.GIT_IGNORED_MODES = { dim = true, hide = true }
+local GIT_IGNORED_MODES = M.GIT_IGNORED_MODES
 
 -- Deep-copy a plain data table (the config is data, never functions-in-arrays).
 local function copy(v)
@@ -136,6 +150,9 @@ local function validate(cfg)
   end
   if type(cfg.width) ~= "number" or cfg.width < 1 then
     error("nxvim-tree: width must be a positive number", 3)
+  end
+  if not GIT_IGNORED_MODES[cfg.git_ignored] then
+    error("nxvim-tree: git_ignored must be 'dim' or 'hide', got " .. tostring(cfg.git_ignored), 3)
   end
   for key, action in pairs(cfg.mappings) do
     if action ~= false and type(action) ~= "function" and not M.ACTIONS[action] then
