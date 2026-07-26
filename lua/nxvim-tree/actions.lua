@@ -477,6 +477,21 @@ function M.toggle_git_ignored(tree, api)
   )
 end
 
+-- Suspend / re-apply the configured `filters` globs. Like `toggle_git_ignored` this is a
+-- render-time filter, so it needs no model refresh — the filtered-out nodes are still
+-- loaded and come back on the same tick.
+function M.toggle_filters(tree, api)
+  if #tree.config.filters == 0 then
+    -- Refuse rather than flip a switch over an empty set: nothing would change now, and
+    -- the flip would persist (see the session snapshot) to silently suppress the filters
+    -- the day some get configured.
+    return nx.notify("nxvim-tree: no `filters` are configured", 3)
+  end
+  tree.config.filters_enabled = tree.config.filters_enabled == false
+  api.render({ restore_cursor = true })
+  nx.notify("nxvim-tree: filters " .. (tree.config.filters_enabled and "applied" or "suspended"))
+end
+
 function M.reveal(tree, api)
   api.reveal()
 end

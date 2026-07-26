@@ -325,6 +325,10 @@ function write_session()
     -- would otherwise reset. Stored as its string mode, so an unknown future value is
     -- simply ignored on the way back in rather than silently read as a boolean.
     git_ignored = tree.config.git_ignored,
+    -- And the `U` toggle. Only the on/off switch persists, never the `filters` list
+    -- itself: the patterns are config the user edits, and a stale copy in shada would
+    -- outrank an edited setup() until they noticed.
+    filters_enabled = tree.config.filters_enabled ~= false,
   })
 end
 
@@ -426,6 +430,9 @@ local function build(opts)
   end
   if restore and config.GIT_IGNORED_MODES[restore.git_ignored] then
     M.config.git_ignored = restore.git_ignored
+  end
+  if restore and type(restore.filters_enabled) == "boolean" then
+    M.config.filters_enabled = restore.filters_enabled
   end
 
   tree = {
@@ -846,6 +853,13 @@ function M.setup(opts)
     and config.GIT_IGNORED_MODES[pending_restore.git_ignored]
   then
     M.config.git_ignored = pending_restore.git_ignored
+  end
+  if
+    persist_enabled()
+    and pending_restore
+    and type(pending_restore.filters_enabled) == "boolean"
+  then
+    M.config.filters_enabled = pending_restore.filters_enabled
   end
   hl_applied = false
   highlights.apply(M.config.highlights)

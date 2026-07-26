@@ -6,8 +6,10 @@
 -- table over it, validating the few values that have a closed domain so a typo
 -- fails loud (per the project's no-silent-stubs rule) instead of mis-rendering.
 --
--- Everything here is pure data + validation — no editor calls — so it is trivially
--- unit-testable and the same table drives both the live plugin and the test suite.
+-- Everything here is pure data + validation — no editor state is read or written, so it
+-- is trivially unit-testable and the same table drives both the live plugin and the test
+-- suite. (`validate` does call `nx.glob`, but that is a pure pattern engine — compiling a
+-- glob observes nothing and changes nothing.)
 
 local M = {}
 
@@ -47,6 +49,7 @@ M.ACTIONS = {
   refresh = "Re-scan the whole tree",
   toggle_hidden = "Show/hide dotfiles",
   toggle_git_ignored = "Dim/hide git-ignored entries",
+  toggle_filters = "Apply/suspend the configured glob filters",
   change_root = "Make the directory under the cursor the new root",
   up_root = "Make the parent of the current root the new root",
   reveal = "Reveal the file open in the main window",
@@ -83,6 +86,7 @@ local DEFAULT_MAPPINGS = {
   R = "refresh",
   H = "toggle_hidden",
   I = "toggle_git_ignored", -- nvim-tree's key for the same toggle
+  U = "toggle_filters", -- nvim-tree's key for the same toggle (`filters.custom`)
   ["<"] = "up_root",
   [">"] = "change_root",
   f = "reveal",
@@ -113,6 +117,29 @@ local DEFAULTS = {
   -- in NvimTreeGitIgnored, "hide" drops them from the tree. The `I` key toggles between
   -- the two live, and the choice persists across sessions like `hidden`.
   git_ignored = "dim", -- "dim" | "hide"
+  -- Glob patterns whose matching entries are dropped from the tree, e.g.
+  -- `{ "*.o", "node_modules", "/vendor" }`. Empty by default: git already hides the
+  -- build output worth hiding (`git_ignored`), and this is for the rest — a vendored
+  -- directory that IS tracked, generated files a repo commits.
+  --
+  -- Matching is `nx.glob` (shell / gitignore syntax, compiled to one cached regex set),
+  -- against each entry's path relative to the TREE ROOT, and it follows gitignore's
+  -- anchoring rule:
+  --
+  --   "*.o"          a bare name / pattern matches an entry's BASENAME at any depth
+  --   "node_modules"  — so this hits every `node_modules`, however deep
+  --   "/vendor"      a LEADING "/" anchors to the tree root: only the root's `vendor`
+  --   "/src/*.rs"     — anchored patterns match the whole root-relative path
+  --   "docs/*.md"    any other "/" anchors too (it is already a path, not a name)
+  --
+  -- Matching a directory drops its subtree with it, so `"/vendor"` needs no `/**` tail.
+  -- `U` suspends and re-applies the whole set live, and that choice persists across
+  -- sessions like `hidden`.
+  filters = {},
+  -- Are the `filters` above in force? Runtime state, not really config: `U` flips it and
+  -- the choice persists, exactly like `hidden`. Set it `false` in setup() to declare a
+  -- filter set that starts suspended.
+  filters_enabled = true,
   dirs_first = true, -- sort directories ahead of files (else pure alpha)
   icons = true, -- render Nerd-Font glyphs (false → ASCII +/- markers)
   toggle_key = "<leader>e", -- the global toggle keymap (false to skip)
@@ -130,6 +157,40 @@ local POSITIONS = { left = true, right = true }
 -- stale/unknown persisted mode is ignored rather than smuggled past `validate`).
 M.GIT_IGNORED_MODES = { dim = true, hide = true }
 local GIT_IGNORED_MODES = M.GIT_IGNORED_MODES
+
+-- compile_filters(list) -> { anchored = <globset|nil>, plain = <globset|nil> }: the
+-- matcher for a `filters` list. One place, so validate's fail-loud compile at setup()
+-- and render's matching set can never disagree about what a pattern means. Raises on an
+-- invalid pattern (nx.glob's own error, naming it).
+--
+-- Two sets, because gitignore's anchoring rule is per-pattern while `nx.glob`'s
+-- `basename` option is per-set. A LEADING "/" (stripped here) or any other separator
+-- means the pattern is a PATH, matched whole against the root-relative path; a bare name
+-- is matched against the basename at any depth. Both sets are one compiled regex set, so
+-- a node costs at most two passes however many patterns there are — and `nx.glob` caches
+-- by pattern + options, so re-compiling an unchanged list is free.
+function M.compile_filters(list)
+  local anchored, plain = {}, {}
+  for _, pat in ipairs(list) do
+    if pat:sub(1, 1) == "/" then
+      anchored[#anchored + 1] = pat:sub(2)
+    elseif pat:find("/", 1, true) then
+      anchored[#anchored + 1] = pat
+    else
+      plain[#plain + 1] = pat
+    end
+  end
+  return {
+    anchored = #anchored > 0 and nx.glob.set(anchored, { basename = false }) or nil,
+    plain = #plain > 0 and nx.glob.set(plain, { basename = true }) or nil,
+  }
+end
+
+-- matches_filter(sets, rel) — does the root-relative path `rel` match either set?
+function M.matches_filter(sets, rel)
+  return (sets.anchored ~= nil and sets.anchored:test(rel))
+    or (sets.plain ~= nil and sets.plain:test(rel))
+end
 
 -- Deep-copy a plain data table (the config is data, never functions-in-arrays).
 local function copy(v)
@@ -160,6 +221,24 @@ local function validate(cfg)
   end
   if not GIT_IGNORED_MODES[cfg.git_ignored] then
     error("nxvim-tree: git_ignored must be 'dim' or 'hide', got " .. tostring(cfg.git_ignored), 3)
+  end
+  -- `filters` is compiled here, not at first render: `nx.glob` raises on an invalid
+  -- pattern, and a bad glob is a setup() mistake that should be reported from setup()
+  -- rather than the next repaint. The compile is not wasted — nx.glob caches by
+  -- pattern + options, so render's own set is a cache hit.
+  if type(cfg.filters) ~= "table" then
+    error("nxvim-tree: filters must be a list of glob patterns", 3)
+  end
+  for i, pat in ipairs(cfg.filters) do
+    if type(pat) ~= "string" or pat == "" or pat == "/" then
+      error(("nxvim-tree: filters[%d] must be a non-empty glob pattern"):format(i), 3)
+    end
+  end
+  if #cfg.filters > 0 then
+    local ok, err = pcall(M.compile_filters, cfg.filters)
+    if not ok then
+      error("nxvim-tree: filters — " .. tostring(type(err) == "table" and err.message or err), 3)
+    end
   end
   for key, action in pairs(cfg.mappings) do
     if action ~= false and type(action) ~= "function" and not M.ACTIONS[action] then

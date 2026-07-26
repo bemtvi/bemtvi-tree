@@ -6,21 +6,22 @@ Table of Contents                               *nxvim-tree-table-of-contents*
 1. Features                                              |nxvim-tree-features|
 2. Install                                                |nxvim-tree-install|
 3. Configuration                                    |nxvim-tree-configuration|
-4. Persistence                                        |nxvim-tree-persistence|
-5. Commands                                              |nxvim-tree-commands|
-6. Key bindings                                      |nxvim-tree-key-bindings|
-7. Mouse                                                    |nxvim-tree-mouse|
-8. Extending                                            |nxvim-tree-extending|
+4. Filters                                                |nxvim-tree-filters|
+5. Persistence                                        |nxvim-tree-persistence|
+6. Commands                                              |nxvim-tree-commands|
+7. Key bindings                                      |nxvim-tree-key-bindings|
+8. Mouse                                                    |nxvim-tree-mouse|
+9. Extending                                            |nxvim-tree-extending|
   - Icons                                         |nxvim-tree-extending-icons|
   - Decorators                               |nxvim-tree-extending-decorators|
   - Actions                                     |nxvim-tree-extending-actions|
   - on_attach                                 |nxvim-tree-extending-on_attach|
-9. Highlights                                          |nxvim-tree-highlights|
-10. Git status                                         |nxvim-tree-git-status|
+10. Highlights                                         |nxvim-tree-highlights|
+11. Git status                                         |nxvim-tree-git-status|
   - Ignored entries                    |nxvim-tree-git-status-ignored-entries|
-11. Module API                                         |nxvim-tree-module-api|
-12. Trying it locally                           |nxvim-tree-trying-it-locally|
-13. Tests                                                   |nxvim-tree-tests|
+12. Module API                                         |nxvim-tree-module-api|
+13. Trying it locally                           |nxvim-tree-trying-it-locally|
+14. Tests                                                   |nxvim-tree-tests|
 
 A fast, dockable, fully-featured file explorer for nxvim — the official tree.
 
@@ -69,6 +70,9 @@ it.
     fallback (`icons = false`) for plain terminals.
 - Dotfiles — shown by default (`hidden = false` or `H` hides them); the
     repository's own `.git` is dimmed as ignored instead of listed plainly.
+- Glob filters — `filters = { "*.o", "node_modules", "/vendor" }` hides
+    entries by gitignore-style glob (`nx.glob`), with `U` to suspend and
+    re-apply the set live.
 - Git status (on by default) — inside a repository the tree colours each
     entry's NAME by its status (added / modified / staged / deleted /
     ignored), puts a matching sign in the gutter, and marks dirty
@@ -117,6 +121,8 @@ Then run `:PluginSync` to clone it, and press `<leader>e` (or run `:Tree`).
       follow = false,    -- reveal the active file as you switch buffers
       git = true,        -- colour entries by git status (false opts out)
       git_ignored = "dim",      -- git-ignored entries: "dim" | "hide" (`I` toggles)
+      filters = {},      -- globs whose matches are hidden (`U` toggles) — see Filters
+      filters_enabled = true,   -- are those globs in force? (`U` flips and persists it)
       dirs_first = true, -- sort directories ahead of files
       icons = true,      -- Nerd-Font glyphs (false → ASCII markers)
       toggle_key = "<leader>e", -- global toggle keymap (false to skip)
@@ -134,22 +140,64 @@ fresh from the defaults), re-applying config, highlights, and commands without
 mounting a second tree.
 
 Out-of-domain values fail LOUD rather than mis-rendering: a `position` that is
-not `"left"` or `"right"`, a non-positive `width`, or a mapping naming an
-action that does not exist all raise from `setup()`.
+not `"left"` or `"right"`, a non-positive `width`, a mapping naming an action
+that does not exist, or an unparseable `filters` glob all raise from `setup()`.
 
 
 ==============================================================================
-4. Persistence                                        *nxvim-tree-persistence*
+4. Filters                                                *nxvim-tree-filters*
+
+`filters` hides entries by glob. Git already hides the build output worth
+hiding (see |nxvim-tree-ignored-entries|), so this is for the rest: a vendored
+directory that IS tracked, generated files a repo commits, scratch files you
+never want to see.
+
+>lua
+    require("nxvim-tree").setup({
+      filters = { "*.o", "node_modules", "/vendor", "/docs/*.generated.md" },
+    })
+<
+
+Matching is `nx.glob` — nxvim's shell/gitignore glob engine, compiled to
+one cached regex set, so a long filter list costs a single pass per entry
+rather than one per pattern. Paths are matched relative to the TREE ROOT, and
+anchoring follows gitignore's rule:
+
+>
+    *.o                 a bare name / pattern matches an entry's BASENAME, at any depth
+    node_modules         — so this hits every node_modules, however deeply nested
+    /vendor             a LEADING "/" anchors to the tree root: only the root's vendor
+    /docs/*.md          anchored patterns match the whole root-relative path
+    docs/*.md           any other "/" anchors too (it is already a path, not a name)
+<
+
+The full syntax is `nx.glob`'s: `*` (not crossing `/`), `**` (crossing it),
+`?`, `[abc]`, `[!abc]`, `{a,b}` alternation. See `:help nx.glob`.
+
+Matching a **directory** takes its whole subtree with it, so `"/vendor"` needs
+no `/**` tail.
+
+`U` suspends and re-applies the whole set live. It is a render-time filter over
+already-loaded nodes, so nothing is re-read from disk and the entries come
+straight back; the on/off choice persists across sessions like the `H` and `I`
+toggles. The _patterns_ are never persisted — they are config you edit, and a
+stale copy in the session would outrank an edited `setup()`. `U` over an empty
+`filters` refuses rather than persisting a switch that would silently suppress
+the filters you add later.
+
+
+==============================================================================
+5. Persistence                                        *nxvim-tree-persistence*
 
 With `persist = true` (the default) the sidebar rides a workspace session: on
 restart nxvim-tree reopens it in its dock, at the same root, with the same
 directories expanded and the cursor back on the same node. The editor
 round-trips only a stable id and the view's dock slot; the plugin keeps the
-actual snapshot (root, expanded dirs, cursor, the `H` dotfile toggle, and the
-`I` ignored mode) in its own isolated `nx.shada` slice and rebuilds the content
-in an `nx.view.on_restore` handler. A stale snapshot whose directory has since
-vanished degrades gracefully — the missing dir is skipped, never a failed
-restore.
+actual snapshot (root, expanded dirs, cursor, the `H` dotfile toggle, the `I`
+ignored mode, and the `U` filters switch) in its own isolated `nx.shada` slice
+and rebuilds the content in an `nx.view.on_restore` handler. A stale snapshot
+whose directory has since vanished degrades gracefully — the missing dir is
+skipped, never a failed restore.
 
 It takes effect when the session itself is captured, which is a launch-time
 choice:
@@ -167,11 +215,12 @@ restored, exactly like any other window. The dotfile toggle is the exception:
 it is a preference rather than window state, so the saved value beats the
 configured `hidden` default on every launch — even a plain `:Tree` in a
 session whose sidebar wasn't part of the restored layout. The `I` ignored
-mode works the same way. Set `persist = false` to opt out entirely.
+mode and the `U` filters switch work the same way. Set `persist = false` to opt
+out entirely.
 
 
 ==============================================================================
-5. Commands                                              *nxvim-tree-commands*
+6. Commands                                              *nxvim-tree-commands*
 
 >
     :Tree          toggle the sidebar
@@ -183,7 +232,7 @@ mode works the same way. Set `persist = false` to opt out entirely.
 
 
 ==============================================================================
-6. Key bindings                                      *nxvim-tree-key-bindings*
+7. Key bindings                                      *nxvim-tree-key-bindings*
 
 All bindings are buffer-local on the tree and fully configurable through
 `opts.mappings` — a `key → action` table. A value is a built-in action
@@ -213,6 +262,7 @@ The defaults:
     W          collapse_all   R       refresh
     P          parent         H       toggle_hidden
                                   I       toggle_git_ignored
+                                  U       toggle_filters
     >          change_root    f       reveal
     <          up_root        <leader>/  filter
     q          close          <Esc>      clear_filter
@@ -246,6 +296,7 @@ carry as their `desc`, so `<leader>fk` and the which-key popup read them):
     refresh           Re-scan the whole tree
     toggle_hidden     Show/hide dotfiles
     toggle_git_ignored  Dim/hide git-ignored entries
+    toggle_filters    Apply/suspend the configured glob filters
     change_root       Make the directory under the cursor the new root
     up_root           Make the parent of the current root the new root
     reveal            Reveal the file open in the main window
@@ -262,7 +313,7 @@ That list is also available at runtime as
 
 
 ==============================================================================
-7. Mouse                                                    *nxvim-tree-mouse*
+8. Mouse                                                    *nxvim-tree-mouse*
 
 The mouse is on by default:
 
@@ -302,7 +353,7 @@ Turn the mouse off — or remap it — like any other key:
 
 
 ==============================================================================
-8. Extending                                            *nxvim-tree-extending*
+9. Extending                                            *nxvim-tree-extending*
 
 The plugin is built to be extended without forking it.
 
@@ -378,7 +429,7 @@ Run once when the tree buffer exists, for buffer-scoped maps and options:
 
 
 ==============================================================================
-9. Highlights                                          *nxvim-tree-highlights*
+10. Highlights                                         *nxvim-tree-highlights*
 
 The explorer uses the canonical `NvimTree*` highlight group names from
 nvim-tree.lua — so a ported colorscheme that already styles those groups
@@ -431,7 +482,7 @@ can likewise be overridden.
 
 
 ==============================================================================
-10. Git status                                         *nxvim-tree-git-status*
+11. Git status                                         *nxvim-tree-git-status*
 
 The decorator is ON by default. The tree reads the repository through the
 native `nx.git` engine (gix — no `git` binary is spawned, and nothing blocks:
@@ -505,7 +556,7 @@ has nothing to act on.
 
 
 ==============================================================================
-11. Module API                                         *nxvim-tree-module-api*
+12. Module API                                         *nxvim-tree-module-api*
 
 Beyond `setup()` and the extensibility registries, the module exposes the
 lifecycle directly, for scripting and for your own keymaps:
@@ -529,7 +580,7 @@ pass `{ focus = false }` to move the cursor but bounce focus back to the editor
 
 
 ==============================================================================
-12. Trying it locally                           *nxvim-tree-trying-it-locally*
+13. Trying it locally                           *nxvim-tree-trying-it-locally*
 
 This repo ships a runnable demo:
 
@@ -542,7 +593,7 @@ plugin straight from this checkout).
 
 
 ==============================================================================
-13. Tests                                                   *nxvim-tree-tests*
+14. Tests                                                   *nxvim-tree-tests*
 
 >sh
     nxvim --test-plugin .

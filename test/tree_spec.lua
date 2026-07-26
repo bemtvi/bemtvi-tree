@@ -662,6 +662,139 @@ nx.test.describe("nxvim-tree", function()
     nx.test.expect(tree._session().hidden).to_be(true)
   end)
 
+  -- ----- glob filters (nx.glob) ---------------------------------------------
+  --
+  -- `filters` is a list of shell/gitignore-style globs matched by `nx.glob` against each
+  -- entry's path relative to the tree root. The two matching rules the option documents
+  -- get a test each: separator-less patterns hit the basename at any depth, patterns with
+  -- a separator are anchored at the root.
+
+  nx.test.it("hides entries matching a separator-less filter glob, at any depth", function(t)
+    tree.destroy()
+    nx.await(fs.write(model.join(ROOT, "notes.bak"), ""))
+    nx.await(fs.write(model.join(ROOT, "src/main.bak"), ""))
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = { "*.bak" } })
+    open_ready(t)
+    t:feed("j"):feed("<CR>") -- expand src/
+    wait_contains(t, "main.rs")
+
+    local txt = buf_text()
+    nx.test.expect(txt).to_contain("readme.txt")
+    nx.test.expect(txt).to_contain("main.rs")
+    nx.test.expect(txt).never.to_contain("notes.bak") -- root level
+    nx.test.expect(txt).never.to_contain("main.bak") -- and nested, with no `**/` needed
+  end)
+
+  -- Both `vendor` directories render as the same text, so these two assert on the model's
+  -- flat node PATHS instead of the buffer text — the anchor's whole point is telling two
+  -- identically-named entries apart.
+  local function vendor_tree(t, filters)
+    tree.destroy()
+    nx.await(fs.mkdir(model.join(ROOT, "vendor")))
+    nx.await(fs.write(model.join(ROOT, "vendor/dep.rs"), ""))
+    nx.await(fs.mkdir(model.join(ROOT, "src/vendor")))
+    nx.await(fs.write(model.join(ROOT, "src/vendor/keep.rs"), ""))
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = filters })
+    open_ready(t)
+    -- Expand every directory (`E`) so a surviving subtree really is in the flat list;
+    -- a collapsed one would look "filtered" without being.
+    t:feed("E")
+    t:wait_for(function()
+      return #(tree.api.state().flat or {}) > 4
+    end)
+    local paths = {}
+    for _, n in ipairs(tree.api.state().flat) do
+      paths[n.path] = true
+    end
+    return paths
+  end
+
+  -- A LEADING "/" anchors to the tree root (gitignore's rule), and matching a directory
+  -- takes its whole subtree — so `/vendor` needs no `/**` tail and, unlike the bare name,
+  -- leaves a nested `vendor/` alone.
+  nx.test.it("anchors a filter glob written with a leading slash", function(t)
+    local paths = vendor_tree(t, { "/vendor" })
+    -- The root's vendor/ is gone, and its child with it…
+    nx.test.expect(paths[model.join(ROOT, "vendor")]).to_be_nil()
+    nx.test.expect(paths[model.join(ROOT, "vendor/dep.rs")]).to_be_nil()
+    -- …while src/vendor/ — the same NAME, a different path — survives the anchor.
+    nx.test.expect(paths[model.join(ROOT, "src/vendor")]).to_be(true)
+    nx.test.expect(paths[model.join(ROOT, "src/vendor/keep.rs")]).to_be(true)
+  end)
+
+  -- The unanchored spelling of the same name hits at every depth instead.
+  nx.test.it("matches a bare filter name at any depth", function(t)
+    local paths = vendor_tree(t, { "vendor" })
+    nx.test.expect(paths[model.join(ROOT, "vendor")]).to_be_nil()
+    nx.test.expect(paths[model.join(ROOT, "src/vendor")]).to_be_nil()
+    nx.test.expect(paths[model.join(ROOT, "src/vendor/keep.rs")]).to_be_nil()
+    nx.test.expect(paths[model.join(ROOT, "src/main.rs")]).to_be(true)
+  end)
+
+  -- `U` suspends and re-applies the set. It is a render-time filter over already-loaded
+  -- nodes, so the hidden entries come back with no filesystem round-trip — and the
+  -- on/off choice persists across a rebuild like `H` does.
+  nx.test.it("toggles the filters with `U` and persists the choice", function(t)
+    tree.destroy()
+    nx.await(fs.write(model.join(ROOT, "notes.bak"), ""))
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = { "*.bak" } })
+    open_ready(t)
+    nx.test.expect(buf_text()).never.to_contain("notes.bak")
+
+    t:feed("U") -- suspend
+    wait_contains(t, "notes.bak")
+    nx.test.expect(tree.config.filters_enabled).to_be(false)
+    nx.test.expect(tree._session().filters_enabled).to_be(false)
+
+    -- A rebuild re-merges the config (filters_enabled back to true); the snapshot is
+    -- what has to bring the suspension back.
+    local saved = tree._session()
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = { "*.bak" } })
+    nx.test.expect(tree.config.filters_enabled).to_be(true)
+    tree._restore(saved)
+    wait_contains(t, "notes.bak")
+  end)
+
+  -- The `filters` list itself is config, never persisted: a snapshot from a session that
+  -- had filters must not keep filtering after the user edits them out of setup().
+  nx.test.it("persists the filters switch but never the patterns", function(t)
+    tree.destroy()
+    nx.await(fs.write(model.join(ROOT, "notes.bak"), ""))
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = { "*.bak" } })
+    open_ready(t)
+    nx.test.expect(buf_text()).never.to_contain("notes.bak")
+    local saved = tree._session()
+    nx.test.expect(saved.filters).to_be_nil()
+
+    tree.setup({ root = ROOT, watch = false, toggle_key = false }) -- filters removed
+    tree._restore(saved)
+    wait_contains(t, "notes.bak")
+  end)
+
+  -- `U` over an empty set would flip (and persist) a switch that suppresses the filters
+  -- the day some get configured, so it refuses instead.
+  nx.test.it("refuses to toggle filters when none are configured", function(t)
+    open_ready(t)
+    t:feed("U")
+    t:feed("")
+    nx.test.expect(tree.config.filters_enabled).to_be(true)
+  end)
+
+  -- An invalid glob is a setup() mistake, reported from setup() rather than swallowed
+  -- until the next repaint.
+  nx.test.it("rejects a bad filter glob from setup()", function()
+    nx.test
+      .expect(function()
+        tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = { "a{b" } })
+      end)
+      .to_error("filters")
+    nx.test
+      .expect(function()
+        tree.setup({ root = ROOT, watch = false, toggle_key = false, filters = { 7 } })
+      end)
+      .to_error("filters[1]")
+  end)
+
   -- A stale snapshot naming a directory since deleted on disk must not sink the whole
   -- restore: the missing dir is skipped, the rest of the tree still renders.
   nx.test.it("tolerates a stale snapshot whose expanded dir has vanished", function(t)

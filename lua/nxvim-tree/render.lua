@@ -20,6 +20,7 @@
 
 local model = require("nxvim-tree.model")
 local icons = require("nxvim-tree.icons")
+local config = require("nxvim-tree.config")
 
 local M = {}
 
@@ -59,6 +60,47 @@ local function apply_filter(entries, filter)
   local out = {}
   for _, n in ipairs(entries) do
     if keep[n] then
+      out[#out + 1] = n
+    end
+  end
+  return out
+end
+
+-- The compiled matcher for a filter list, cached per list so a render costs no compile.
+-- Keyed by the list TABLE, weakly: a `:Tree` reconfigured with a new filter list drops
+-- the old matcher with the old table instead of leaking one entry per setup().
+local globset_cache = setmetatable({}, { __mode = "k" })
+local function filter_globs(filters)
+  local sets = globset_cache[filters]
+  if not sets then
+    sets = config.compile_filters(filters)
+    globset_cache[filters] = sets
+  end
+  return sets
+end
+
+-- Drop entries matching the configured `filters` globs. Paths are tested relative to the
+-- tree ROOT, which is what lets an anchored pattern (`"/vendor"`) mean the root's own
+-- `vendor` rather than any directory of that name.
+--
+-- A matching DIRECTORY takes its subtree with it: `flatten` yields parents before their
+-- children, so remembering the dropped nodes and testing each node's parent against that
+-- set removes descendants without re-matching them — and without a pattern needing a
+-- `/**` tail to mean "and everything under it".
+--
+-- Like the git-ignored filter below, this is a render-time filter, NOT one in the model's
+-- scandir: the nodes stay loaded, so `U` flips instantly with no filesystem round-trip.
+local function apply_filters(entries, tree)
+  local sets = filter_globs(tree.config.filters)
+  local root = tree.root.path
+  local base = root:sub(-1) == "/" and root or (root .. "/")
+  local dropped, out = {}, {}
+  for _, n in ipairs(entries) do
+    local rel = n.path:sub(1, #base) == base and n.path:sub(#base + 1) or n.path
+    local gone = n.depth ~= 0 and (dropped[n.parent] or config.matches_filter(sets, rel))
+    if gone then
+      dropped[n] = true
+    else
       out[#out + 1] = n
     end
   end
@@ -161,6 +203,9 @@ function M.render(tree, opts)
   end
 
   local entries = model.flatten(tree.root)
+  if tree.config.filters_enabled ~= false and #tree.config.filters > 0 then
+    entries = apply_filters(entries, tree)
+  end
   if tree.config.git_ignored == "hide" then
     entries = apply_git_ignored(entries, tree)
   end

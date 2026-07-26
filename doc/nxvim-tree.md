@@ -48,6 +48,9 @@ point: a real explorer, written the way a plugin author would write it.
   fallback (`icons = false`) for plain terminals.
 - Dotfiles — shown by default (`hidden = false` or `H` hides them); the
   repository's own `.git` is dimmed as ignored instead of listed plainly.
+- Glob filters — `filters = { "*.o", "node_modules", "/vendor" }` hides
+  entries by gitignore-style glob (`nx.glob`), with `U` to suspend and
+  re-apply the set live.
 - Git status (on by default) — inside a repository the tree colours each
   entry's NAME by its status (added / modified / staged / deleted /
   ignored), puts a matching sign in the gutter, and marks dirty
@@ -92,6 +95,8 @@ require("nxvim-tree").setup({
   follow = false,    -- reveal the active file as you switch buffers
   git = true,        -- colour entries by git status (false opts out)
   git_ignored = "dim",      -- git-ignored entries: "dim" | "hide" (`I` toggles)
+  filters = {},      -- globs whose matches are hidden (`U` toggles) — see Filters
+  filters_enabled = true,   -- are those globs in force? (`U` flips and persists it)
   dirs_first = true, -- sort directories ahead of files
   icons = true,      -- Nerd-Font glyphs (false → ASCII markers)
   toggle_key = "<leader>e", -- global toggle keymap (false to skip)
@@ -108,15 +113,52 @@ require("nxvim-tree").setup({
 re-applying config, highlights, and commands without mounting a second tree.
 
 Out-of-domain values fail LOUD rather than mis-rendering: a `position` that is not `"left"` or
-`"right"`, a non-positive `width`, or a mapping naming an action that does not exist all raise from
-`setup()`.
+`"right"`, a non-positive `width`, a mapping naming an action that does not exist, or an unparseable
+`filters` glob all raise from `setup()`.
+
+# Filters
+
+`filters` hides entries by glob. Git already hides the build output worth hiding (see
+[Ignored entries](#ignored-entries)), so this is for the rest: a vendored directory that IS tracked,
+generated files a repo commits, scratch files you never want to see.
+
+```lua
+require("nxvim-tree").setup({
+  filters = { "*.o", "node_modules", "/vendor", "/docs/*.generated.md" },
+})
+```
+
+Matching is `nx.glob` — nxvim's shell/gitignore glob engine, compiled to one cached regex set, so a
+long filter list costs a single pass per entry rather than one per pattern. Paths are matched
+relative to the TREE ROOT, and anchoring follows gitignore's rule:
+
+```
+*.o                 a bare name / pattern matches an entry's BASENAME, at any depth
+node_modules         — so this hits every node_modules, however deeply nested
+/vendor             a LEADING "/" anchors to the tree root: only the root's vendor
+/docs/*.md          anchored patterns match the whole root-relative path
+docs/*.md           any other "/" anchors too (it is already a path, not a name)
+```
+
+The full syntax is `nx.glob`'s: `*` (not crossing `/`), `**` (crossing it), `?`, `[abc]`, `[!abc]`,
+`{a,b}` alternation. See `:help nx.glob`.
+
+Matching a **directory** takes its whole subtree with it, so `"/vendor"` needs no `/**` tail.
+
+`U` suspends and re-applies the whole set live. It is a render-time filter over already-loaded
+nodes, so nothing is re-read from disk and the entries come straight back; the on/off choice
+persists across sessions like the `H` and `I` toggles. The *patterns* are never persisted — they are
+config you edit, and a stale copy in the session would outrank an edited `setup()`. `U` over an
+empty `filters` refuses rather than persisting a switch that would silently suppress the filters you
+add later.
 
 # Persistence
 
 With `persist = true` (the default) the sidebar rides a workspace session: on restart nxvim-tree
 reopens it in its dock, at the same root, with the same directories expanded and the cursor back on
 the same node. The editor round-trips only a stable id and the view's dock slot; the plugin keeps
-the actual snapshot (root, expanded dirs, cursor, the `H` dotfile toggle, and the `I` ignored mode)
+the actual snapshot (root, expanded dirs, cursor, the `H` dotfile toggle, the `I` ignored mode, and the `U` filters
+switch)
 in its own isolated
 `nx.shada` slice and rebuilds the content in an `nx.view.on_restore` handler. A stale snapshot whose
 directory has since vanished degrades gracefully — the missing dir is skipped, never a failed
@@ -135,8 +177,8 @@ nxvim --workspace .        # run session-scoped (captures + restores)
 Without those the persist id simply rides along and the *window* isn't restored, exactly like any
 other window. The dotfile toggle is the exception: it is a preference rather than window state, so
 the saved value beats the configured `hidden` default on every launch — even a plain `:Tree` in a
-session whose sidebar wasn't part of the restored layout. The `I` ignored mode works the same way.
-Set `persist = false` to opt out entirely.
+session whose sidebar wasn't part of the restored layout. The `I` ignored mode and the `U` filters
+switch work the same way. Set `persist = false` to opt out entirely.
 
 # Commands
 
@@ -177,6 +219,7 @@ E          expand_all     y       yank_path
 W          collapse_all   R       refresh
 P          parent         H       toggle_hidden
                               I       toggle_git_ignored
+                              U       toggle_filters
 >          change_root    f       reveal
 <          up_root        <leader>/  filter
 q          close          <Esc>      clear_filter
@@ -209,6 +252,7 @@ yank_path         Yank the absolute path to the " and + registers
 refresh           Re-scan the whole tree
 toggle_hidden     Show/hide dotfiles
 toggle_git_ignored  Dim/hide git-ignored entries
+toggle_filters    Apply/suspend the configured glob filters
 change_root       Make the directory under the cursor the new root
 up_root           Make the parent of the current root the new root
 reveal            Reveal the file open in the main window

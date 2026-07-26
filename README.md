@@ -34,6 +34,9 @@ explorer, written the way a plugin author would write it.
   Nothing is inserted between the icon and the name, and inside a repo the sign gutter is
   held open, so the filename's column never moves. Ignored entries (and `.git`) dim, or
   hide with `I`.
+- **Glob filters** — `filters = { "*.o", "node_modules", "/vendor" }` hides entries by
+  gitignore-style glob (`nx.glob`), anchored with a leading `/`; `U` suspends and
+  re-applies the whole set live.
 - **Extensible** — custom icons, per-node decorators, rebindable keys, `on_attach`.
 
 ## Install
