@@ -569,6 +569,35 @@ nx.test.describe("nxvim-tree", function()
     nx.test.expect(wait_contains(t, "main.rs")).to_contain("main.rs")
   end)
 
+  -- The dotfile toggle (H) is session state too, not just static config: it flips
+  -- `config.hidden`, and a fresh session's setup() re-merges that field back to the
+  -- configured default. So the snapshot has to carry it, or a restore silently drops
+  -- the user's choice.
+  nx.test.it("persists the hidden-files toggle and restores it across a rebuild", function(t)
+    open_ready(t)
+    t:feed("H")
+    wait_contains(t, ".secret")
+    nx.test.expect(tree._session().hidden).to_be(true)
+
+    -- A new session re-merges the config from the defaults, so `hidden` is back to false
+    -- here — the snapshot is what has to bring the toggle back.
+    tree.setup({ root = ROOT, watch = false, toggle_key = false })
+    nx.test.expect(tree.config.hidden).to_be(false)
+    tree._restore(tree._session())
+    nx.test.expect(wait_contains(t, ".secret")).to_contain(".secret")
+
+    -- And toggling back off persists the off state (not just "true once written").
+    tree.focus()
+    t:wait_for(function()
+      return tree._ready()
+    end)
+    t:feed("H")
+    t:wait_for(function()
+      return not buf_text():find(".secret", 1, true)
+    end)
+    nx.test.expect(tree._session().hidden).to_be(false)
+  end)
+
   -- A stale snapshot naming a directory since deleted on disk must not sink the whole
   -- restore: the missing dir is skipped, the rest of the tree still renders.
   nx.test.it("tolerates a stale snapshot whose expanded dir has vanished", function(t)

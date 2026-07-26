@@ -20,7 +20,7 @@
 -- This file owns the singleton tree state, the open/close/toggle lifecycle, the
 -- root-change + reveal flows, the auto-refresh watch and follow autocmd, the
 -- cross-session persistence (a `persist`-id view + `nx.view.on_restore`, snapshotting
--- root/expanded/cursor into the plugin's own `nx.shada` slice), the public extensibility
+-- root/expanded/cursor/hidden into the plugin's own `nx.shada` slice), the public extensibility
 -- registries, and `setup()`.
 --
 -- Quick start (init.lua):
@@ -52,12 +52,14 @@ local restore_wired = false
 -- ----- cross-session persistence ---------------------------------------------
 -- The tree rides the workspace session via the core persisted-view mechanism: its view is
 -- minted with a stable `persist` id, so a restore reserves the sidebar's dock slot; the
--- plugin keeps the actual snapshot (root + expanded dirs + cursor) in its own isolated
--- shada slice (`nx.shada.plugin()`), and rebuilds the view from it in the
+-- plugin keeps the actual snapshot (root + expanded dirs + cursor + the dotfile toggle) in
+-- its own isolated shada slice (`nx.shada.plugin()`), and rebuilds the view from it in the
 -- `nx.view.on_restore` handler wired by setup(), adopting the reserved window. Gated by
 -- `config.persist` (default true). Restore takes effect for a session-scoped launch
 -- (`--workspace` + `nx.shada.save_layout(true)`) — otherwise the persist id just rides
--- along and nothing is restored, exactly like any other window.
+-- along and the WINDOW isn't restored, exactly like any other window. The dotfile toggle
+-- is the exception: it is a preference rather than window state, so setup() applies the
+-- saved value to the config on every launch, whatever build path opens the sidebar.
 --
 -- `nx.view.on_restore` is a PULL: registering the handler (in setup(), below) also drains
 -- any slot core already reserved for us, so this restores correctly even though we load
@@ -285,6 +287,11 @@ function write_session()
     root = tree.root.path,
     expanded = tree._expanded or { tree.root.path },
     cursor = tree._cursor_path,
+    -- The dotfile toggle is session state, not static config: `H` flips it, and the next
+    -- session's setup() would otherwise re-merge the configured default over the user's
+    -- choice. Normalized to a real boolean so `false` persists as `false`, not as an
+    -- absent key (which build() reads as "no saved preference").
+    hidden = tree.config.hidden == true,
   })
 end
 
@@ -365,8 +372,9 @@ end
 -- `opts` drives the cross-session restore path (from the `on_restore` handler):
 --   opts.place    — `place(view)` adopts the reserved restore window instead of opening a
 --                   fresh dock (the session already restored the dock geometry);
---   opts.restore  — the saved snapshot `{ root, expanded, cursor }`; the model is rooted
---                   there and its saved directories + cursor are re-opened.
+--   opts.restore  — the saved snapshot `{ root, expanded, cursor, hidden }`; the model is
+--                   rooted there, its saved directories + cursor are re-opened, and the
+--                   dotfile toggle is restored.
 -- Absent ⇒ a fresh open rooted at the configured root / cwd, expanding only the root.
 local function build(opts)
   opts = opts or {}
@@ -374,6 +382,14 @@ local function build(opts)
   if not hl_applied then
     highlights.apply(M.config.highlights)
     hl_applied = true
+  end
+
+  -- Restore the dotfile toggle before the root loads, so the very first scandir already
+  -- applies the saved filter (no visible flip). `H` toggles `config.hidden` in place, so
+  -- this writes back to the same field — a snapshot predating this state has no `hidden`
+  -- key and leaves the configured default alone.
+  if restore and type(restore.hidden) == "boolean" then
+    M.config.hidden = restore.hidden
   end
 
   tree = {
@@ -649,7 +665,7 @@ function M._watched_paths()
 end
 
 -- _session() — the snapshot this plugin last stashed in its shada slice (`{ root,
--- expanded, cursor }`), or nil. Introspection for tests that the persistence writes.
+-- expanded, cursor, hidden }`), or nil. Introspection for tests that the persistence writes.
 function M._session()
   return store:get(SESSION_KEY)
 end
@@ -771,6 +787,13 @@ function M.setup(opts)
   if persist_enabled() and not restore_captured then
     pending_restore = store:get(SESSION_KEY)
     restore_captured = true
+  end
+  -- The dotfile toggle is a preference, not per-window state, so the saved value beats the
+  -- configured default on EVERY build — not just the `on_restore` one. Applied here (the
+  -- merge above just reset the field) so a plain `:Tree` in a session whose sidebar wasn't
+  -- part of the restored layout still honours the last `H`.
+  if persist_enabled() and pending_restore and type(pending_restore.hidden) == "boolean" then
+    M.config.hidden = pending_restore.hidden
   end
   hl_applied = false
   highlights.apply(M.config.highlights)

@@ -134,10 +134,11 @@ With `persist = true` (the default) the sidebar rides a workspace session: on
 restart nxvim-tree reopens it in its dock, at the same root, with the same
 directories expanded and the cursor back on the same node. The editor
 round-trips only a stable id and the view's dock slot; the plugin keeps the
-actual snapshot (root, expanded dirs, cursor) in its own isolated `nx.shada`
-slice and rebuilds the content in an `nx.view.on_restore` handler. A stale
-snapshot whose directory has since vanished degrades gracefully — the missing
-dir is skipped, never a failed restore.
+actual snapshot (root, expanded dirs, cursor, and the `H` dotfile toggle) in
+its own isolated `nx.shada` slice and rebuilds the content in an
+`nx.view.on_restore` handler. A stale snapshot whose directory has since
+vanished degrades gracefully — the missing dir is skipped, never a failed
+restore.
 
 It takes effect when the session itself is captured, which is a launch-time
 choice:
@@ -150,8 +151,12 @@ choice:
     nxvim --workspace .        # run session-scoped (captures + restores)
 <
 
-Without those the persist id simply rides along and nothing is restored,
-exactly like any other window. Set `persist = false` to opt out entirely.
+Without those the persist id simply rides along and the _window_ isn't
+restored, exactly like any other window. The dotfile toggle is the exception:
+it is a preference rather than window state, so the saved value beats the
+configured `hidden` default on every launch — even a plain `:Tree` in a
+session whose sidebar wasn't part of the restored layout. Set `persist =
+false` to opt out entirely.
 
 
 ==============================================================================
