@@ -226,6 +226,89 @@ nx.test.describe("nxvim-tree git presentation", function()
     nx.test.expect(nx.wo[tree.api.state().view:winid()].signcolumn).never.to_be("yes")
   end)
 
+  -- The decorator needs NO opt-in: a bare setup() inside a repository already colours the
+  -- tree. (Every other test here passes `git = true` explicitly; this one is the guard that
+  -- the DEFAULT carries it, so a user who never read the option list still gets status.)
+  nx.test.it("decorates by default, with no `git` option at all", function(t)
+    if not have_git then
+      return nx.notify("skip: git not on PATH")
+    end
+    tree.destroy()
+    tree.setup({ root = ROOT, watch = false, toggle_key = false })
+    nx.test.expect(tree.config.git).to_be(true)
+    open_ready(t)
+    wait_git(t)
+    t:wait_for(function()
+      local hls = name_hls("tracked.txt")
+      return hls[1] and hls
+    end)
+    nx.test.expect(name_hls("tracked.txt")).to_contain("NvimTreeGitDirty")
+    nx.test.expect(name_hls("noise.log")).to_contain("NvimTreeGitIgnored")
+  end)
+
+  -- The repository's own `.git` reads as ignored: dimmed with everything else, and dropped
+  -- by `git_ignored = "hide"`. It shows at all only because dotfiles are visible by
+  -- default — which is precisely why it needs the treatment.
+  nx.test.it("dims the .git directory and hides it with the ignored entries", function(t)
+    if not have_git then
+      return nx.notify("skip: git not on PATH")
+    end
+    open_ready(t)
+    wait_git(t)
+    wait_contains(t, ".git/")
+    -- Wait for the GROUP, not for "any highlight": a directory row already carries
+    -- NvimTreeFolderName before the decorator's first repaint lands.
+    t:wait_for(function()
+      for _, h in ipairs(name_hls(".git")) do
+        if h == "NvimTreeGitIgnored" then
+          return true
+        end
+      end
+    end)
+    nx.test.expect(name_hls(".git")).to_contain("NvimTreeGitIgnored")
+
+    t:feed("I") -- → hide
+    local hidden = t:wait_for(function()
+      local txt = buf_text()
+      return not txt:find(".git/", 1, true) and txt
+    end)
+    nx.test.expect(hidden).never.to_contain(".git/")
+    nx.test.expect(hidden).to_contain("tracked.txt")
+  end)
+
+  -- With the decorator opted out there is no ignored set to act on, so `I` must not
+  -- pretend: it warns and leaves the mode alone rather than persisting a preference the
+  -- user can never see take effect.
+  nx.test.it("leaves git_ignored alone when `git = false`", function(t)
+    tree.destroy()
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, git = false })
+    open_ready(t)
+    t:feed("I")
+    for _ = 1, 20 do
+      t:feed("")
+    end
+    nx.test.expect(tree.config.git_ignored).to_be("dim")
+    nx.test.expect(tree._session().git_ignored).to_be("dim")
+  end)
+
+  -- …and `git = false` is a real opt-out: no status is ever fetched, so nothing is tinted
+  -- and no repo state is published (which is also what keeps the gutter unreserved).
+  nx.test.it("opts out of git entirely with `git = false`", function(t)
+    if not have_git then
+      return nx.notify("skip: git not on PATH")
+    end
+    tree.destroy()
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, git = false })
+    open_ready(t)
+    -- Give a status every chance to land had one been fetched at all.
+    for _ = 1, 20 do
+      t:feed("")
+    end
+    nx.test.expect(tree.api.state()._git).to_be(nil)
+    nx.test.expect(name_hls("tracked.txt")).never.to_contain("NvimTreeGitDirty")
+    nx.test.expect(name_hls("noise.log")).never.to_contain("NvimTreeGitIgnored")
+  end)
+
   -- Ignored entries dim by default — including every file under a collapsed ignored
   -- directory, which is what `is_ignored`'s prefix walk buys.
   nx.test.it("dims git-ignored entries, directory and descendants alike", function(t)

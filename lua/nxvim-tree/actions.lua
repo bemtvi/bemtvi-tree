@@ -462,13 +462,15 @@ end
 -- NO model refresh: hiding is a render-time filter over the already-loaded nodes (see
 -- render.lua), so the toggle is instant and never re-reads the filesystem.
 function M.toggle_git_ignored(tree, api)
+  if not tree.config.git then
+    -- Refuse rather than flip a setting that can have no effect: with the decorator opted
+    -- out (`git = false`) nothing ever computes the ignored set, so neither mode shows
+    -- anything — and toggling anyway would persist a preference (see the session
+    -- snapshot) that silently takes hold the day git is turned back on.
+    return nx.notify("nxvim-tree: git_ignored does nothing while `git = false`", 3)
+  end
   tree.config.git_ignored = (tree.config.git_ignored == "hide") and "dim" or "hide"
   api.render({ restore_cursor = true })
-  if not tree.config.git then
-    -- Say so rather than silently toggling a setting that can have no effect: without
-    -- `git = true` nothing ever computes the ignored set, so neither mode shows anything.
-    return nx.notify("nxvim-tree: git_ignored needs `git = true` to have any effect", 3)
-  end
   nx.notify(
     "nxvim-tree: git-ignored entries "
       .. (tree.config.git_ignored == "hide" and "hidden" or "dimmed")

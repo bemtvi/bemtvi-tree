@@ -46,9 +46,12 @@ point: a real explorer, written the way a plugin author would write it.
   search, since the tree is an ordinary buffer.)
 - Icons — Nerd-Font glyphs per extension and filename, with an ASCII
   fallback (`icons = false`) for plain terminals.
-- Git status (opt-in) — `git = true` colours each entry's NAME by its
-  status (added / modified / staged / deleted / ignored), puts a matching
-  sign in the gutter, and marks dirty directories — refreshed on save.
+- Dotfiles — shown by default (`hidden = false` or `H` hides them); the
+  repository's own `.git` is dimmed as ignored instead of listed plainly.
+- Git status (on by default) — inside a repository the tree colours each
+  entry's NAME by its status (added / modified / staged / deleted /
+  ignored), puts a matching sign in the gutter, and marks dirty
+  directories — refreshed on save. `git = false` opts out.
   Nothing is ever inserted between the icon and the name, and inside a
   repo the sign gutter is held open so the tree never shifts sideways.
   Ignored entries dim by default; `git_ignored = "hide"` (or the `I`
@@ -84,10 +87,10 @@ require("nxvim-tree").setup({
   root = nil,        -- tree root (default: the cwd at first open)
   position = "left", -- dock side: "left" | "right"
   width = 32,        -- sidebar columns
-  hidden = false,    -- show dotfiles?
+  hidden = true,     -- show dotfiles? (`H` toggles; false hides them)
   watch = true,      -- auto-refresh on filesystem changes
   follow = false,    -- reveal the active file as you switch buffers
-  git = false,       -- colour entries by git status
+  git = true,        -- colour entries by git status (false opts out)
   git_ignored = "dim",      -- git-ignored entries: "dim" | "hide" (`I` toggles)
   dirs_first = true, -- sort directories ahead of files
   icons = true,      -- Nerd-Font glyphs (false → ASCII markers)
@@ -376,9 +379,10 @@ nvim-web-devicons), so those live under the plugin's own `NxTreeIcon*` namespace
 
 # Git status
 
-With `git = true` the tree reads the repository through the native `nx.git` engine (gix — no `git`
-binary is spawned, and nothing blocks: every op is a promise settled off the editor tick), builds a
-path → status map, and paints each entry accordingly. It re-fetches on `BufWritePost`.
+The decorator is ON by default. The tree reads the repository through the native `nx.git` engine
+(gix — no `git` binary is spawned, and nothing blocks: every op is a promise settled off the editor
+tick), builds a path → status map, and paints each entry accordingly. It re-fetches on
+`BufWritePost`.
 
 A status shows up in two places, neither of which can move the filename:
 
@@ -413,7 +417,13 @@ git_ignored = "hide",  -- drop them from the tree entirely
 
 `I` toggles between the two live, and the choice persists across sessions (see Persistence). Hiding
 is a render-time filter, so the toggle is instant — no re-scan, and a directory you un-hide keeps
-whatever was expanded under it.
+whatever was expanded under it. With `git = false` there is no ignored set at all, so `I` warns and
+leaves the mode alone rather than persisting a preference you could never see take effect.
+
+The repository's own `.git` counts as ignored: it dims with everything else and disappears under
+`git_ignored = "hide"`. Dotfiles are shown by default, so it would otherwise sit at the top of every
+repo's tree as an ordinary directory. (In a worktree or submodule checkout `.git` is a file rather
+than a directory — the same path test covers both.)
 
 Ignored reporting is an opt-in of `nx.git.status` (`{ ignored = true }`), and the engine reports a
 wholly-ignored directory as ONE entry rather than each of its files, so a `target/` with 50k objects
@@ -426,9 +436,11 @@ always answer about the client's disk and mark the wrong repo.
 The tree root need not be the repository root — the repo is discovered from it, so a tree rooted at
 a subdirectory is marked correctly.
 
-A directory that is not inside a repository simply leaves the tree unmarked and stays quiet; any
-other failure (a broken repo, or a serverless web session with no git engine) is surfaced. With
-`git = false` — the default — none of it runs.
+A directory that is not inside a repository simply leaves the tree unmarked and stays quiet — one
+`discover` that rejects, and nothing further; any other failure (a broken repo, or a serverless web
+session with no git engine) is surfaced. That quiet non-repo path is what makes the default safe to
+leave on; `git = false` opts out of all of it, and then `git_ignored` (and the `I` key) has nothing
+to act on.
 
 # Module API
 

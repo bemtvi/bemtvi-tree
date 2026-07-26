@@ -98,13 +98,20 @@ local DEFAULTS = {
   root = nil, -- tree root path (default: the editor's cwd at first open)
   position = "left", -- which dock side: "left" | "right"
   width = 32, -- sidebar columns
-  hidden = false, -- show dotfiles? (the `H` toggle persists and beats this default)
+  -- Show dotfiles? ON by default — `.gitignore`, `.env`, `.github/` … are files you
+  -- edit, and an explorer that silently omits them reads as an incomplete tree. (The
+  -- repository's own `.git` is dimmed as ignored instead — see git.lua.) `H` toggles
+  -- live, and that choice persists and beats this default on later launches.
+  hidden = true,
   watch = true, -- auto-refresh on filesystem changes
   follow = false, -- auto-reveal the file in the active window as you switch buffers
-  git = false, -- enable the built-in git-status decorator
-  -- What to do with git-ignored entries (needs `git = true`): "dim" renders them in
-  -- NvimTreeGitIgnored, "hide" drops them from the tree. The `I` key toggles between the
-  -- two live, and the choice persists across sessions like `hidden`.
+  -- The built-in git-status decorator, ON by default: inside a repository the tree
+  -- colours each entry by its status, and outside one it costs a single `discover`
+  -- that rejects and stays quiet. Opt out with `git = false`.
+  git = true,
+  -- What to do with git-ignored entries (needs the decorator above): "dim" renders them
+  -- in NvimTreeGitIgnored, "hide" drops them from the tree. The `I` key toggles between
+  -- the two live, and the choice persists across sessions like `hidden`.
   git_ignored = "dim", -- "dim" | "hide"
   dirs_first = true, -- sort directories ahead of files (else pure alpha)
   icons = true, -- render Nerd-Font glyphs (false → ASCII +/- markers)

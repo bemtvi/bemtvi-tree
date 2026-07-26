@@ -1,12 +1,12 @@
--- nxvim-tree.git — the built-in, opt-in git-status decorator (enable with `git = true`).
+-- nxvim-tree.git — the built-in git-status decorator, ON by default (`git = false` opts out).
 --
 -- Zero coupling with the tree's core: it only uses the decorator seam
 -- (`api.register_decorator`) and `api.refresh()`. It reads the repository through the
 -- native `nx.git` engine (gix — no `git` binary is spawned), builds a path → status
 -- map, and a decorator turns that into a gutter sign per changed file plus a "dirty
 -- dot" on directories that contain a change. It re-fetches on `BufWritePost`. With
--- `git = false` (the default) none of this runs, and a non-git directory simply leaves
--- the tree unmarked.
+-- `git = false` none of this runs; a non-git directory simply leaves the tree unmarked
+-- (one `discover` that rejects, then silence), which is why the default can be ON.
 --
 -- `nx.git` (not `nx.git_local`) is deliberate: the status must describe the files the
 -- tree is SHOWING, so in a daemon / remote session it has to run where those files
@@ -71,6 +71,13 @@ end
 --     see `is_ignored`, not a plain lookup.
 function M.index(root, entries)
   local file_status, dir_dirty, ignored = {}, {}, {}
+  -- The repository's own `.git` never appears in a status listing, but it is exactly as
+  -- uninteresting as an ignored path — and dotfiles are shown by default, so it is right
+  -- there in the tree. Seeding it into `ignored` (rather than special-casing the render)
+  -- gets it dimmed, dropped by `git_ignored = "hide"`, and — through `is_ignored`'s
+  -- prefix walk — covers everything inside it too. In a worktree/submodule checkout `.git`
+  -- is a FILE rather than a directory; a path test covers both.
+  ignored[join(root, ".git")] = true
   for _, e in ipairs(entries or {}) do
     local abs = join(root, e.path)
     local code = e.index .. e.worktree
@@ -158,9 +165,9 @@ function M.enable(api)
       api.set_git_state({ root = repo.root, ignored = ignored })
       api.refresh()
     end)():catch(function(e)
-      -- A tree rooted outside any repository is an ordinary state for an opt-in
-      -- decorator, not an error: leave the tree unmarked and stay quiet. Anything
-      -- else (a broken repo, no git engine in a serverless web session) is surfaced.
+      -- A tree rooted outside any repository is an ordinary state — the common one, now
+      -- that the decorator is on by default: leave the tree unmarked and stay quiet.
+      -- Anything else (a broken repo, no git engine in a web session) is surfaced.
       local code = type(e) == "table" and e.code or nil
       if code == "ENOREPO" then
         return

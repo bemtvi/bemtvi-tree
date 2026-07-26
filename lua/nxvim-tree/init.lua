@@ -16,7 +16,7 @@
 --   render.lua      visible nodes → view lines + extmark decoration
 --   actions.lua     open / navigate / create / rename / delete / cut / copy / paste …
 --   keymap.lua      install the configured bindings on the tree buffer
---   git.lua         optional git-status decorator (opt-in via `git = true`)
+--   git.lua         the git-status decorator (on by default; `git = false` opts out)
 -- This file owns the singleton tree state, the open/close/toggle lifecycle, the
 -- root-change + reveal flows, the auto-refresh watch and follow autocmd, the
 -- cross-session persistence (a `persist`-id view + `nx.view.on_restore`, snapshotting
@@ -24,7 +24,7 @@
 -- registries, and `setup()`.
 --
 -- Quick start (init.lua):
---   require("nxvim-tree").setup({ width = 32, git = true })
+--   require("nxvim-tree").setup({ width = 32 })
 --   -- then <leader>e or :Tree toggles the sidebar.
 
 local config = require("nxvim-tree.config")

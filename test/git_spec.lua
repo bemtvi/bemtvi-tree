@@ -136,6 +136,19 @@ nx.test.describe("nxvim-tree.git ignored", function()
     nx.test.expect(git.is_ignored(ignored, "/repo/targetlike/x.o", ROOT)).to_be(false)
   end)
 
+  -- The repository's own `.git` is never in a status listing, but it is exactly as
+  -- uninteresting as an ignored path — so `index` seeds it, which both dims it and lets
+  -- `git_ignored = "hide"` drop it along with the rest. (It rides `ignored` rather than a
+  -- render special-case so `is_ignored`'s prefix walk covers everything inside it too.)
+  nx.test.it("indexes the repository's own .git as ignored", function()
+    local _, _, ignored = git.index(ROOT, {})
+    nx.test.expect(ignored["/repo/.git"]).to_be(true)
+    nx.test.expect(git.is_ignored(ignored, "/repo/.git", ROOT)).to_be(true)
+    nx.test.expect(git.is_ignored(ignored, "/repo/.git/refs/heads/main", ROOT)).to_be(true)
+    -- Only the REPO's own: a `.git` name deeper in the tree is not this repo's.
+    nx.test.expect(git.is_ignored(ignored, "/repo/src/.gitignore", ROOT)).to_be(false)
+  end)
+
   nx.test.it("never climbs past the repo root", function()
     -- An entry named like the repo's PARENT must not make the repo's own files ignored.
     local ignored = { ["/"] = true, ["/repo"] = true }

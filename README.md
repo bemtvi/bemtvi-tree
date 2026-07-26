@@ -27,10 +27,13 @@ explorer, written the way a plugin author would write it.
 - **Name filter** (`<leader>/`, leaving a bare `/` to the editor's own search),
   **Nerd-Font icons** (with an ASCII fallback), opt-in **follow**, and cross-session
   **persistence**.
-- **Git status** (opt-in) — an entry's *name* is coloured by its status (added / modified /
-  staged / deleted / ignored) with a matching gutter sign. Nothing is inserted between the
-  icon and the name, and inside a repo the sign gutter is held open, so the filename's
-  column never moves. Ignored entries dim, or hide with `I`.
+- **Dotfiles shown** by default (`H`, or `hidden = false`, hides them) — the repository's
+  own `.git` dims as ignored rather than sitting in the listing.
+- **Git status** (on by default; `git = false` opts out) — an entry's *name* is coloured by
+  its status (added / modified / staged / deleted / ignored) with a matching gutter sign.
+  Nothing is inserted between the icon and the name, and inside a repo the sign gutter is
+  held open, so the filename's column never moves. Ignored entries (and `.git`) dim, or
+  hide with `I`.
 - **Extensible** — custom icons, per-node decorators, rebindable keys, `on_attach`.
 
 ## Install

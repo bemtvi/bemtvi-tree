@@ -78,7 +78,19 @@ nx.test.describe("nxvim-tree", function()
     tree.destroy()
   end)
 
-  nx.test.it("renders the root's entries, directories suffixed and dotfiles hidden", function(t)
+  -- Dotfiles are SHOWN by default: a file explorer that silently omits `.gitignore`,
+  -- `.env`, `.github/` … hides exactly the files an editor session is usually there for.
+  -- `H` (and `hidden = false`) is the opt-out.
+  nx.test.it("renders the root's entries, directories suffixed and dotfiles shown", function(t)
+    tree.open()
+    local txt = wait_contains(t, "readme.txt")
+    nx.test.expect(txt).to_contain("src/")
+    nx.test.expect(txt).to_contain(".secret")
+  end)
+
+  nx.test.it("hides dotfiles with `hidden = false`", function(t)
+    tree.destroy()
+    tree.setup({ root = ROOT, watch = false, toggle_key = false, hidden = false })
     tree.open()
     local txt = wait_contains(t, "readme.txt")
     nx.test.expect(txt).to_contain("src/")
@@ -105,6 +117,13 @@ nx.test.describe("nxvim-tree", function()
 
   nx.test.it("toggles hidden files with H", function(t)
     open_ready(t)
+    nx.test.expect(buf_text()).to_contain(".secret") -- shown by default
+    t:feed("H")
+    local gone = t:wait_for(function()
+      local txt = buf_text()
+      return not txt:find(".secret", 1, true) and txt
+    end)
+    nx.test.expect(gone).never.to_contain(".secret")
     t:feed("H")
     nx.test.expect(wait_contains(t, ".secret")).to_contain(".secret")
   end)
@@ -190,7 +209,9 @@ nx.test.describe("nxvim-tree", function()
 
   nx.test.it("deletes a file with `d` after confirming", function(t)
     open_ready(t)
-    t:feed("j"):feed("j") -- root(1) → src/(2) → readme.txt(3)
+    -- root(1) → src/(2) → .secret(3) → readme.txt(4): dotfiles are shown by default, so
+    -- the dotfile sorts between the directory and the plain file.
+    t:feed("j"):feed("j"):feed("j")
     t:feed("d")
     t:wait_for(function()
       return t:mode() == "c"
@@ -615,27 +636,30 @@ nx.test.describe("nxvim-tree", function()
   -- the user's choice.
   nx.test.it("persists the hidden-files toggle and restores it across a rebuild", function(t)
     open_ready(t)
-    t:feed("H")
-    wait_contains(t, ".secret")
-    nx.test.expect(tree._session().hidden).to_be(true)
+    t:feed("H") -- dotfiles are shown by default, so this HIDES them
+    t:wait_for(function()
+      return not buf_text():find(".secret", 1, true)
+    end)
+    nx.test.expect(tree._session().hidden).to_be(false)
 
-    -- A new session re-merges the config from the defaults, so `hidden` is back to false
+    -- A new session re-merges the config from the defaults, so `hidden` is back to true
     -- here — the snapshot is what has to bring the toggle back.
     tree.setup({ root = ROOT, watch = false, toggle_key = false })
-    nx.test.expect(tree.config.hidden).to_be(false)
+    nx.test.expect(tree.config.hidden).to_be(true)
     tree._restore(tree._session())
-    nx.test.expect(wait_contains(t, ".secret")).to_contain(".secret")
+    t:wait_for(function()
+      return buf_text():find("readme.txt", 1, true) and not buf_text():find(".secret", 1, true)
+    end)
+    nx.test.expect(buf_text()).never.to_contain(".secret")
 
-    -- And toggling back off persists the off state (not just "true once written").
+    -- And toggling back on persists the on state (not just "false once written").
     tree.focus()
     t:wait_for(function()
       return tree._ready()
     end)
     t:feed("H")
-    t:wait_for(function()
-      return not buf_text():find(".secret", 1, true)
-    end)
-    nx.test.expect(tree._session().hidden).to_be(false)
+    wait_contains(t, ".secret")
+    nx.test.expect(tree._session().hidden).to_be(true)
   end)
 
   -- A stale snapshot naming a directory since deleted on disk must not sink the whole

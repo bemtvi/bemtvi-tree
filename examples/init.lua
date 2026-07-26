@@ -27,9 +27,9 @@
 --   r  rename   d  delete (confirms)
 --   x  cut      c  copy      p  paste (move/copy under the cursor's dir)
 --   y                        yank the absolute path to the " and + registers
---   <leader>/ filter         R  refresh        H  toggle hidden files
+--   <leader>/ filter         R  refresh        H  hide/show dotfiles (shown by default)
 --     (Esc clears it; a bare / stays the editor's own buffer search)
---   I                        git-ignored entries: dimmed <-> hidden
+--   I                        git-ignored entries (and `.git`): dimmed <-> hidden
 --   > / <                    descend into / ascend out of the root directory
 --   f                        reveal the file open in the main window
 --   q                        close the sidebar
@@ -52,7 +52,8 @@ nx.plugins({
     config = function()
       require("nxvim-tree").setup({
         width = 34,
-        git = true, -- colour entries by git status (this repo is one)
+        -- `git` is on by default (this repo is one, so entries colour by status); set
+        -- `git = false` here to see the tree with no git decoration at all.
         follow = true, -- keep the tree cursor on the file you're editing
         open_on_start = true, -- show the tree immediately so the playground isn't empty
         -- A couple of custom seams, to show the extension points:
