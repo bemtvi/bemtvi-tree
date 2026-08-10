@@ -67,4 +67,40 @@ nx.test.describe("nxvim-tree.highlights", function()
     highlights.apply({})
     nx.test.expect(nx.hl.get(0, { name = "NvimTreeNormal" }).bg).to_be(0x222233)
   end)
+
+  -- The fallbacks are DERIVED from the active theme (nx.hl.palette), not hardcoded to
+  -- one colorscheme's hexes, so the sidebar reads as part of whatever is loaded. Under
+  -- the editor's own `nxvim` scheme that means its One Dark hues.
+  nx.test.it("derives its fallback colors from the active colorscheme", function(t)
+    -- `hi clear` first: earlier `it`s in this file claim some NvimTree* groups with
+    -- explicit `nx.hl.define` colours, and the fallback rightly yields to those.
+    t:cmd("hi clear")
+    t:cmd("colorscheme nxvim")
+    highlights.apply({})
+    local function fg(group)
+      return nx.hl.get(0, { name = group, link = false }).fg
+    end
+    nx.test.expect(fg("NvimTreeFolderName")).to_be(0x61afef) -- One Dark blue
+    nx.test.expect(fg("NvimTreeGitNew")).to_be(0x98c379) -- One Dark green
+    nx.test.expect(fg("NvimTreeGitDirty")).to_be(0xe5c07b) -- One Dark yellow
+    nx.test.expect(fg("NvimTreeGitDeleted")).to_be(0xe06c75) -- One Dark red
+    nx.test.expect(fg("NvimTreeIndentMarker")).to_be(0x5c6370) -- One Dark comment grey
+    nx.test.expect(fg("NxTreeIconRust")).to_be(0xd19a66) -- One Dark orange
+  end)
+
+  -- The half a plain `nx.hl.exists` guard gets wrong: `:colorscheme` drops only the
+  -- OUTGOING scheme's own groups, so a group no theme models (every NxTreeIcon*, the
+  -- staged/ignored git states) still holds the colour derived from the previous theme.
+  -- The plugin re-applies on ColorScheme, and the fallback must actually move.
+  nx.test.it("re-derives a group no theme models when the theme changes", function(t)
+    t:cmd("colorscheme nxvim")
+    highlights.apply({})
+    nx.test.expect(nx.hl.get(0, { name = "NxTreeIconRust", link = false }).fg).to_be(0xd19a66)
+
+    -- Stand in for another theme: move the group the `orange` slot derives from.
+    t:cmd("hi clear")
+    nx.hl.define(0, "Constant", { fg = "#123456" })
+    highlights.apply({})
+    nx.test.expect(nx.hl.get(0, { name = "NxTreeIconRust", link = false }).fg).to_be(0x123456)
+  end)
 end)

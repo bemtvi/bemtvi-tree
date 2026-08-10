@@ -794,6 +794,17 @@ local function wire_autocmds()
     end
     render({ restore_cursor = false }) -- refresh the opened-file highlight
   end)
+
+  -- Re-derive the fallback highlights whenever the theme changes. `:colorscheme` drops
+  -- only the OUTGOING scheme's own groups, so without this every group the incoming
+  -- theme doesn't model (all the icons, the staged/ignored git states, the cut/copy
+  -- marks — no colorscheme's nvim-tree integration covers them) keeps the colour
+  -- derived from the previous theme: a dark-flavour palette left standing on a light
+  -- one. `highlights.apply` yields to a theme that DOES style a group, so re-applying
+  -- here never fights the colorscheme; it fires after the theme's own highlight calls.
+  nx.on("ColorScheme", {}, function()
+    highlights.apply(M.config.highlights)
+  end)
 end
 
 -- Register the cross-session restore handler (wired once). After a session restore core
