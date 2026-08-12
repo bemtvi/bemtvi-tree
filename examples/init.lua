@@ -1,13 +1,13 @@
--- ~~~ Runnable demo for nxvim-tree ~~~
+-- ~~~ Runnable demo for bemtvi-tree ~~~
 --
 -- Run it from the repo root:
 --
---     NXVIM_CONFIG=examples nxvim examples/sample/readme.txt
+--     BEMTVI_CONFIG=examples bemtvi examples/sample/readme.txt
 --
 -- To also see SESSION PERSISTENCE, launch it session-scoped (the `save_layout` call below
 -- opts the layout into the capture):
 --
---     NXVIM_CONFIG=examples nxvim --workspace examples examples/sample/readme.txt
+--     BEMTVI_CONFIG=examples bemtvi --workspace examples examples/sample/readme.txt
 --
 -- Expand a couple of directories, move the cursor, `:qa`, then re-run the SAME command: the
 -- sidebar comes back in its dock, at the same root, with the same dirs open and the cursor
@@ -39,25 +39,25 @@ vim.g.mapleader = " "
 
 -- Opt the window/tab layout into the workspace-session capture, so a `--workspace` launch
 -- restores the sidebar (root + expanded dirs + cursor) across a restart. Harmless without
--- `--workspace` — nothing is captured then. nxvim-tree's `persist` option is on by default.
-nx.shada.save_layout(true)
+-- `--workspace` — nothing is captured then. bemtvi-tree's `persist` option is on by default.
+btv.shada.save_layout(true)
 
 -- Load the plugin straight from this repo (a local-dev spec: `dir` is never cloned).
--- A real config would instead use `{ "davidrios/nxvim-tree", config = ... }` and
+-- A real config would instead use `{ "davidrios/bemtvi-tree", config = ... }` and
 -- `:PluginSync`.
-nx.plugins({
+btv.plugins({
   {
-    name = "nxvim-tree",
+    name = "bemtvi-tree",
     dir = vim.fn.expand("<sfile>:p:h:h"), -- the repo root (this file's grandparent dir)
     config = function()
-      require("nxvim-tree").setup({
+      require("bemtvi-tree").setup({
         width = 34,
         -- `git` is on by default (this repo is one, so entries colour by status); set
         -- `git = false` here to see the tree with no git decoration at all.
         follow = true, -- keep the tree cursor on the file you're editing
         open_on_start = true, -- show the tree immediately so the playground isn't empty
         -- A couple of custom seams, to show the extension points:
-        icon_overrides = { conf = { glyph = "\u{e615}", hl = "NxTreeIconDefault" } },
+        icon_overrides = { conf = { glyph = "\u{e615}", hl = "BtvTreeIconDefault" } },
         mappings = {
           -- Add a binding without redeclaring the defaults: `.` makes the dir under
           -- the cursor the new root (an alias for the built-in `>`).
@@ -70,6 +70,6 @@ nx.plugins({
 
 -- A custom action, registered after setup: `<C-r>` reveals the current file. Shows
 -- the register_action seam — `fn(tree, api)` runs inside the async error wrapper.
-require("nxvim-tree").register_action("<C-r>", function(_tree, api)
+require("bemtvi-tree").register_action("<C-r>", function(_tree, api)
   api.reveal()
 end)

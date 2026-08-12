@@ -1,12 +1,12 @@
-<!-- DO NOT EDIT doc/nxvim-tree.txt BY HAND. It is generated from this file by
+<!-- DO NOT EDIT doc/bemtvi-tree.txt BY HAND. It is generated from this file by
 panvimdoc — run `scripts/gen-vimdoc.sh` after editing. -->
 
-A fast, dockable, fully-featured file explorer for nxvim — the official tree.
+A fast, dockable, fully-featured file explorer for bemtvi — the official tree.
 
-It is built entirely on the native `nx.*` plugin API (ADR 0002): no buffer-mutation hacks, no
-bespoke rendering loop. The tree's lines are owned by a read-only `nx.view` surface, the filesystem
-work goes through the promise `nx.fs` API (with a per-directory watch for live refresh), files open
-in the main editor via `nx.open`, and every glyph, guide, and git sign is an extmark. That is the
+It is built entirely on the native `btv.*` plugin API (ADR 0002): no buffer-mutation hacks, no
+bespoke rendering loop. The tree's lines are owned by a read-only `btv.view` surface, the filesystem
+work goes through the promise `btv.fs` API (with a per-directory watch for live refresh), files open
+in the main editor via `btv.open`, and every glyph, guide, and git sign is an extmark. That is the
 point: a real explorer, written the way a plugin author would write it.
 
 ```
@@ -19,16 +19,16 @@ point: a real explorer, written the way a plugin author would write it.
  󰈙 readme.txt
 ```
 
-<!-- Passed through verbatim so `:help nxvim-tree` lands on this page
+<!-- Passed through verbatim so `:help bemtvi-tree` lands on this page
      (panvimdoc derives per-section tags but no bare project tag). -->
 ```vimdoc
-                                                                   *nxvim-tree*
+                                                                   *bemtvi-tree*
 ```
 
 # Features
 
 - Lazy, watched tree — directories scandir on first expand; each
-  expanded directory gets its own `nx.fs` watch that auto-refreshes it
+  expanded directory gets its own `btv.fs` watch that auto-refreshes it
   on disk changes. Only what is visible is watched, so a huge collapsed
   subtree costs nothing (toggle with `watch`).
 - Open anywhere — `<CR>` / `o` opens in the main window; `s` / `v` / `t`
@@ -49,7 +49,7 @@ point: a real explorer, written the way a plugin author would write it.
 - Dotfiles — shown by default (`hidden = false` or `H` hides them); the
   repository's own `.git` is dimmed as ignored instead of listed plainly.
 - Glob filters — `filters = { "*.o", "node_modules", "/vendor" }` hides
-  entries by gitignore-style glob (`nx.glob`), with `U` to suspend and
+  entries by gitignore-style glob (`btv.glob`), with `U` to suspend and
   re-apply the set live.
 - Git status (on by default) — inside a repository the tree colours each
   entry's NAME by its status (added / modified / staged / deleted /
@@ -69,11 +69,11 @@ point: a real explorer, written the way a plugin author would write it.
 Declare it with the built-in `:Plugins` manager in your `init.lua`:
 
 ```lua
-nx.plugins({
+btv.plugins({
   {
-    "davidrios/nxvim-tree",
+    "davidrios/bemtvi-tree",
     config = function()
-      require("nxvim-tree").setup({})
+      require("bemtvi-tree").setup({})
     end,
   },
 })
@@ -86,7 +86,7 @@ Then run `:PluginSync` to clone it, and press `<leader>e` (or run `:Tree`).
 `setup()` takes an optional table; the defaults are:
 
 ```lua
-require("nxvim-tree").setup({
+require("bemtvi-tree").setup({
   root = nil,        -- tree root (default: the cwd at first open)
   position = "left", -- dock side: "left" | "right"
   width = 32,        -- sidebar columns
@@ -123,12 +123,12 @@ Out-of-domain values fail LOUD rather than mis-rendering: a `position` that is n
 generated files a repo commits, scratch files you never want to see.
 
 ```lua
-require("nxvim-tree").setup({
+require("bemtvi-tree").setup({
   filters = { "*.o", "node_modules", "/vendor", "/docs/*.generated.md" },
 })
 ```
 
-Matching is `nx.glob` — nxvim's shell/gitignore glob engine, compiled to one cached regex set, so a
+Matching is `btv.glob` — bemtvi's shell/gitignore glob engine, compiled to one cached regex set, so a
 long filter list costs a single pass per entry rather than one per pattern. Paths are matched
 relative to the TREE ROOT, and anchoring follows gitignore's rule:
 
@@ -140,8 +140,8 @@ node_modules         — so this hits every node_modules, however deeply nested
 docs/*.md           any other "/" anchors too (it is already a path, not a name)
 ```
 
-The full syntax is `nx.glob`'s: `*` (not crossing `/`), `**` (crossing it), `?`, `[abc]`, `[!abc]`,
-`{a,b}` alternation. See `:help nx.glob`.
+The full syntax is `btv.glob`'s: `*` (not crossing `/`), `**` (crossing it), `?`, `[abc]`, `[!abc]`,
+`{a,b}` alternation. See `:help btv.glob`.
 
 Matching a **directory** takes its whole subtree with it, so `"/vendor"` needs no `/**` tail.
 
@@ -154,24 +154,24 @@ add later.
 
 # Persistence
 
-With `persist = true` (the default) the sidebar rides a workspace session: on restart nxvim-tree
+With `persist = true` (the default) the sidebar rides a workspace session: on restart bemtvi-tree
 reopens it in its dock, at the same root, with the same directories expanded and the cursor back on
 the same node. The editor round-trips only a stable id and the view's dock slot; the plugin keeps
 the actual snapshot (root, expanded dirs, cursor, the `H` dotfile toggle, the `I` ignored mode, and the `U` filters
 switch)
 in its own isolated
-`nx.shada` slice and rebuilds the content in an `nx.view.on_restore` handler. A stale snapshot whose
+`btv.shada` slice and rebuilds the content in an `btv.view.on_restore` handler. A stale snapshot whose
 directory has since vanished degrades gracefully — the missing dir is skipped, never a failed
 restore.
 
 It takes effect when the session itself is captured, which is a launch-time choice:
 
 ```lua
-nx.shada.save_layout(true) -- opt the layout into the session capture
+btv.shada.save_layout(true) -- opt the layout into the session capture
 ```
 
 ```sh
-nxvim --workspace .        # run session-scoped (captures + restores)
+bemtvi --workspace .        # run session-scoped (captures + restores)
 ```
 
 Without those the persist id simply rides along and the *window* isn't restored, exactly like any
@@ -197,7 +197,7 @@ All bindings are buffer-local on the tree and fully configurable through `opts.m
 action, or `false` to disable a default:
 
 ```lua
-require("nxvim-tree").setup({
+require("bemtvi-tree").setup({
   mappings = {
     ["."] = "change_root", -- add a binding
     s = false,             -- disable the default split-open
@@ -264,7 +264,7 @@ mouse_open        Double left-click: open the file under the pointer
 mouse_menu        Right-click: a context menu for the node
 ```
 
-That list is also available at runtime as `require("nxvim-tree.config").ACTIONS`, a
+That list is also available at runtime as `require("bemtvi-tree.config").ACTIONS`, a
 `name → description` map.
 
 # Mouse
@@ -286,14 +286,14 @@ built from the same actions as the keys, so it always matches your bindings. It 
 focused, since a right-click does not focus a window: left-click into the sidebar first, or it is
 already focused after any other interaction.
 
-Like every `nx.ui.select` list, the menu opens NOSELECT — nothing is highlighted, so a bare `<CR>`
+Like every `btv.ui.select` list, the menu opens NOSELECT — nothing is highlighted, so a bare `<CR>`
 is inert until you move onto a row (`j` / `<C-n>` / the arrows). Clicking a row does both at once.
 `<Esc>` or `q` dismisses it.
 
 Turn the mouse off — or remap it — like any other key:
 
 ```lua
-require("nxvim-tree").setup({
+require("bemtvi-tree").setup({
   mappings = {
     ["<LeftMouse>"] = false,
     ["<2-LeftMouse>"] = false,
@@ -313,9 +313,9 @@ The plugin is built to be extended without forking it.
 Extend the extension / filename registry:
 
 ```lua
-require("nxvim-tree").register_icons({
-  conf = { glyph = "\u{e615}", hl = "NxTreeIconDefault" },
-  name = { [".env"] = { glyph = "\u{f462}", hl = "NxTreeIconText" } },
+require("bemtvi-tree").register_icons({
+  conf = { glyph = "\u{e615}", hl = "BtvTreeIconDefault" },
+  name = { [".env"] = { glyph = "\u{f462}", hl = "BtvTreeIconText" } },
 })
 ```
 
@@ -328,7 +328,7 @@ Add a sign, highlight, or virtual text per node. A decorator is
 decoration on each render. The built-in git module is just a decorator:
 
 ```lua
-require("nxvim-tree").register_decorator(function(node)
+require("bemtvi-tree").register_decorator(function(node)
   if node.name == "TODO.md" then
     return { virt_text = { { "  ←", "WarningMsg" } } }
   end
@@ -337,13 +337,13 @@ end)
 
 ## Actions
 
-Bind a key to `fn(tree, api)`, run inside the async error-surfacing wrapper (so it may `nx.await`
+Bind a key to `fn(tree, api)`, run inside the async error-surfacing wrapper (so it may `btv.await`
 freely, and a rejection becomes a notification rather than an unhandled error):
 
 ```lua
-require("nxvim-tree").register_action("gx", function(_tree, api)
+require("bemtvi-tree").register_action("gx", function(_tree, api)
   local node = api.node()       -- the node under the cursor
-  if node then nx.ui.open(node.path) end
+  if node then btv.ui.open(node.path) end
 end)
 ```
 
@@ -367,7 +367,7 @@ api.node()                  the node under the cursor
 Run once when the tree buffer exists, for buffer-scoped maps and options:
 
 ```lua
-require("nxvim-tree").setup({
+require("bemtvi-tree").setup({
   on_attach = function(api, bufnr) end,
 })
 ```
@@ -408,27 +408,27 @@ nvim-tree.
 
 These groups are defined only as a FALLBACK — a colorscheme (or your `opts.highlights` override)
 that defines them wins, regardless of load order. The fallback colors are not hardcoded to one
-theme: they are *derived* from the active colorscheme through `nx.hl.palette()` and re-derived on
+theme: they are *derived* from the active colorscheme through `btv.hl.palette()` and re-derived on
 every `ColorScheme` event, so the sidebar reads as part of whatever is loaded — the editor's own
-`nxvim` One Dark by default. That matters most for the many groups no colorscheme's nvim-tree
-integration models (every `NxTreeIcon*`, the staged/ignored git states, the cut/copy marks): they
+`bemtvi` One Dark by default. That matters most for the many groups no colorscheme's nvim-tree
+integration models (every `BtvTreeIcon*`, the staged/ignored git states, the cut/copy marks): they
 follow the theme too, instead of leaving one theme's hexes standing under another. The four
 window-chrome groups link to the editor's own chrome (`NormalFloat`, `EndOfBuffer`, `CursorLine`,
 `CursorLineNr`) so they follow the active theme's light/dark flavour:
 
 ```lua
-require("nxvim-tree").setup({
+require("bemtvi-tree").setup({
   highlights = { NvimTreeRootFolder = { fg = "#f9e2af", bold = true } },
 })
 ```
 
 Per-extension icon colors have no NvimTree equivalent (nvim-tree colors icons via
-nvim-web-devicons), so those live under the plugin's own `NxTreeIcon*` namespace — `NxTreeIconRust`,
-`NxTreeIconLua`, `NxTreeIconMd`, … — and can likewise be overridden.
+nvim-web-devicons), so those live under the plugin's own `BtvTreeIcon*` namespace — `BtvTreeIconRust`,
+`BtvTreeIconLua`, `BtvTreeIconMd`, … — and can likewise be overridden.
 
 # Git status
 
-The decorator is ON by default. The tree reads the repository through the native `nx.git` engine
+The decorator is ON by default. The tree reads the repository through the native `btv.git` engine
 (gix — no `git` binary is spawned, and nothing blocks: every op is a promise settled off the editor
 tick), builds a path → status map, and paints each entry accordingly. It re-fetches on
 `BufWritePost`.
@@ -474,12 +474,12 @@ The repository's own `.git` counts as ignored: it dims with everything else and 
 repo's tree as an ordinary directory. (In a worktree or submodule checkout `.git` is a file rather
 than a directory — the same path test covers both.)
 
-Ignored reporting is an opt-in of `nx.git.status` (`{ ignored = true }`), and the engine reports a
+Ignored reporting is an opt-in of `btv.git.status` (`{ ignored = true }`), and the engine reports a
 wholly-ignored directory as ONE entry rather than each of its files, so a `target/` with 50k objects
 costs a single entry. Every path beneath it resolves as ignored by prefix.
 
-It uses `nx.git`, not `nx.git_local`, on purpose: the status has to describe the files the tree is
-showing, so in a daemon or remote session it runs where those files live. `nx.git_local` would
+It uses `btv.git`, not `btv.git_local`, on purpose: the status has to describe the files the tree is
+showing, so in a daemon or remote session it runs where those files live. `btv.git_local` would
 always answer about the client's disk and mark the wrong repo.
 
 The tree root need not be the repository root — the repo is discovered from it, so a tree rooted at
@@ -497,7 +497,7 @@ Beyond `setup()` and the extensibility registries, the module exposes the lifecy
 scripting and for your own keymaps:
 
 ```
-require("nxvim-tree").toggle()       toggle the sidebar
+require("bemtvi-tree").toggle()       toggle the sidebar
                     .open()          open + focus (building if needed)
                     .close()         hide it, focus back to the editor
                     .focus()         focus the tree (alias of open)
@@ -517,7 +517,7 @@ require("nxvim-tree").toggle()       toggle the sidebar
 This repo ships a runnable demo:
 
 ```sh
-NXVIM_CONFIG=examples nxvim examples/sample/readme.txt
+BEMTVI_CONFIG=examples bemtvi examples/sample/readme.txt
 ```
 
 (run from the repo root — the demo config in `examples/init.lua` loads the plugin straight from this
@@ -526,7 +526,7 @@ checkout).
 # Tests
 
 ```sh
-nxvim --test-plugin .
+bemtvi --test-plugin .
 ```
 
 The suite covers the config merge and validation, the model (lazy load, sort, hidden filter, refresh

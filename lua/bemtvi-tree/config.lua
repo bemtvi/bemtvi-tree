@@ -1,4 +1,4 @@
--- nxvim-tree.config — the default configuration and the merge used by setup().
+-- bemtvi-tree.config — the default configuration and the merge used by setup().
 --
 -- The config is one flat table (plus three nested sub-tables: `mappings`,
 -- `highlights`, `icons`). `defaults()` returns a fresh copy every call so the
@@ -8,7 +8,7 @@
 --
 -- Everything here is pure data + validation — no editor state is read or written, so it
 -- is trivially unit-testable and the same table drives both the live plugin and the test
--- suite. (`validate` does call `nx.glob`, but that is a pure pattern engine — compiling a
+-- suite. (`validate` does call `btv.glob`, but that is a pure pattern engine — compiling a
 -- glob observes nothing and changes nothing.)
 
 local M = {}
@@ -22,7 +22,7 @@ local M = {}
 --
 -- The descriptions are the single source of truth for "what does this key do": the
 -- keymap installer (keymap.lua) passes each into the map's `desc` as
--- `"nxvim-tree: <description>"`, which is what nxvim's built-in keymaps picker
+-- `"bemtvi-tree: <description>"`, which is what bemtvi's built-in keymaps picker
 -- (`<leader>fk`) and the which-key popup surface. Keep them a short verb phrase so
 -- those help surfaces read cleanly.
 M.ACTIONS = {
@@ -122,7 +122,7 @@ local DEFAULTS = {
   -- build output worth hiding (`git_ignored`), and this is for the rest — a vendored
   -- directory that IS tracked, generated files a repo commits.
   --
-  -- Matching is `nx.glob` (shell / gitignore syntax, compiled to one cached regex set),
+  -- Matching is `btv.glob` (shell / gitignore syntax, compiled to one cached regex set),
   -- against each entry's path relative to the TREE ROOT, and it follows gitignore's
   -- anchoring rule:
   --
@@ -161,13 +161,13 @@ local GIT_IGNORED_MODES = M.GIT_IGNORED_MODES
 -- compile_filters(list) -> { anchored = <globset|nil>, plain = <globset|nil> }: the
 -- matcher for a `filters` list. One place, so validate's fail-loud compile at setup()
 -- and render's matching set can never disagree about what a pattern means. Raises on an
--- invalid pattern (nx.glob's own error, naming it).
+-- invalid pattern (btv.glob's own error, naming it).
 --
--- Two sets, because gitignore's anchoring rule is per-pattern while `nx.glob`'s
+-- Two sets, because gitignore's anchoring rule is per-pattern while `btv.glob`'s
 -- `basename` option is per-set. A LEADING "/" (stripped here) or any other separator
 -- means the pattern is a PATH, matched whole against the root-relative path; a bare name
 -- is matched against the basename at any depth. Both sets are one compiled regex set, so
--- a node costs at most two passes however many patterns there are — and `nx.glob` caches
+-- a node costs at most two passes however many patterns there are — and `btv.glob` caches
 -- by pattern + options, so re-compiling an unchanged list is free.
 function M.compile_filters(list)
   local anchored, plain = {}, {}
@@ -181,8 +181,8 @@ function M.compile_filters(list)
     end
   end
   return {
-    anchored = #anchored > 0 and nx.glob.set(anchored, { basename = false }) or nil,
-    plain = #plain > 0 and nx.glob.set(plain, { basename = true }) or nil,
+    anchored = #anchored > 0 and btv.glob.set(anchored, { basename = false }) or nil,
+    plain = #plain > 0 and btv.glob.set(plain, { basename = true }) or nil,
   }
 end
 
@@ -214,36 +214,36 @@ end
 -- merge so it sees the effective config. Raises (level 3 → the setup() caller).
 local function validate(cfg)
   if not POSITIONS[cfg.position] then
-    error("nxvim-tree: position must be 'left' or 'right', got " .. tostring(cfg.position), 3)
+    error("bemtvi-tree: position must be 'left' or 'right', got " .. tostring(cfg.position), 3)
   end
   if type(cfg.width) ~= "number" or cfg.width < 1 then
-    error("nxvim-tree: width must be a positive number", 3)
+    error("bemtvi-tree: width must be a positive number", 3)
   end
   if not GIT_IGNORED_MODES[cfg.git_ignored] then
-    error("nxvim-tree: git_ignored must be 'dim' or 'hide', got " .. tostring(cfg.git_ignored), 3)
+    error("bemtvi-tree: git_ignored must be 'dim' or 'hide', got " .. tostring(cfg.git_ignored), 3)
   end
-  -- `filters` is compiled here, not at first render: `nx.glob` raises on an invalid
+  -- `filters` is compiled here, not at first render: `btv.glob` raises on an invalid
   -- pattern, and a bad glob is a setup() mistake that should be reported from setup()
-  -- rather than the next repaint. The compile is not wasted — nx.glob caches by
+  -- rather than the next repaint. The compile is not wasted — btv.glob caches by
   -- pattern + options, so render's own set is a cache hit.
   if type(cfg.filters) ~= "table" then
-    error("nxvim-tree: filters must be a list of glob patterns", 3)
+    error("bemtvi-tree: filters must be a list of glob patterns", 3)
   end
   for i, pat in ipairs(cfg.filters) do
     if type(pat) ~= "string" or pat == "" or pat == "/" then
-      error(("nxvim-tree: filters[%d] must be a non-empty glob pattern"):format(i), 3)
+      error(("bemtvi-tree: filters[%d] must be a non-empty glob pattern"):format(i), 3)
     end
   end
   if #cfg.filters > 0 then
     local ok, err = pcall(M.compile_filters, cfg.filters)
     if not ok then
-      error("nxvim-tree: filters — " .. tostring(type(err) == "table" and err.message or err), 3)
+      error("bemtvi-tree: filters — " .. tostring(type(err) == "table" and err.message or err), 3)
     end
   end
   for key, action in pairs(cfg.mappings) do
     if action ~= false and type(action) ~= "function" and not M.ACTIONS[action] then
       error(
-        ("nxvim-tree: mapping %q → unknown action %q (see config.ACTIONS)"):format(
+        ("bemtvi-tree: mapping %q → unknown action %q (see config.ACTIONS)"):format(
           tostring(key),
           tostring(action)
         ),
@@ -261,7 +261,7 @@ end
 function M.merge(into, opts)
   opts = opts or {}
   if type(opts) ~= "table" then
-    error("nxvim-tree.setup: opts must be a table", 3)
+    error("bemtvi-tree.setup: opts must be a table", 3)
   end
   for k, v in pairs(opts) do
     if (k == "mappings" or k == "highlights" or k == "icon_overrides") and type(v) == "table" then

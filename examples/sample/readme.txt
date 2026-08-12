@@ -1,4 +1,4 @@
-nxvim-tree demo workspace
+bemtvi-tree demo workspace
 =========================
 
 This little tree exists so the explorer has something to show. Open `src/main.rs`

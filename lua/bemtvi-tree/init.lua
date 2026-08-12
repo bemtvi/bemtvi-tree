@@ -1,10 +1,10 @@
--- nxvim-tree — a dockable, extensible file explorer for nxvim, built entirely on the
--- native `nx.*` plugin API (ADR 0002): no buffer-mutation API, no native widget.
+-- bemtvi-tree — a dockable, extensible file explorer for bemtvi, built entirely on the
+-- native `btv.*` plugin API (ADR 0002): no buffer-mutation API, no native widget.
 --
--- It composes the editor's content + filesystem primitives — `nx.view` (the
--- read-only, mountable line surface), `nx.fs` (the promise filesystem: readdir,
--- mutation, per-directory watch), `nx.open(path, { where = "main" })` (open a file in the
--- MAIN editor, not the sidebar), `nx.dock` (the edge panel it lives in), `nx.ui`
+-- It composes the editor's content + filesystem primitives — `btv.view` (the
+-- read-only, mountable line surface), `btv.fs` (the promise filesystem: readdir,
+-- mutation, per-directory watch), `btv.open(path, { where = "main" })` (open a file in the
+-- MAIN editor, not the sidebar), `btv.dock` (the edge panel it lives in), `btv.ui`
 -- (prompts / confirms), and extmarks (icons, guides, decorator signs). The tree's
 -- lines are OWNED by the view — the plugin never mutates a buffer.
 --
@@ -19,21 +19,21 @@
 --   git.lua         the git-status decorator (on by default; `git = false` opts out)
 -- This file owns the singleton tree state, the open/close/toggle lifecycle, the
 -- root-change + reveal flows, the auto-refresh watch and follow autocmd, the
--- cross-session persistence (a `persist`-id view + `nx.view.on_restore`, snapshotting
--- root/expanded/cursor/hidden into the plugin's own `nx.shada` slice), the public extensibility
+-- cross-session persistence (a `persist`-id view + `btv.view.on_restore`, snapshotting
+-- root/expanded/cursor/hidden into the plugin's own `btv.shada` slice), the public extensibility
 -- registries, and `setup()`.
 --
 -- Quick start (init.lua):
---   require("nxvim-tree").setup({ width = 32 })
+--   require("bemtvi-tree").setup({ width = 32 })
 --   -- then <leader>e or :Tree toggles the sidebar.
 
-local config = require("nxvim-tree.config")
-local highlights = require("nxvim-tree.highlights")
-local icons = require("nxvim-tree.icons")
-local model = require("nxvim-tree.model")
-local render_mod = require("nxvim-tree.render")
-local actions = require("nxvim-tree.actions")
-local keymap = require("nxvim-tree.keymap")
+local config = require("bemtvi-tree.config")
+local highlights = require("bemtvi-tree.highlights")
+local icons = require("bemtvi-tree.icons")
+local model = require("bemtvi-tree.model")
+local render_mod = require("bemtvi-tree.render")
+local actions = require("bemtvi-tree.actions")
+local keymap = require("bemtvi-tree.keymap")
 
 local M = {}
 
@@ -53,24 +53,24 @@ local restore_wired = false
 -- The tree rides the workspace session via the core persisted-view mechanism: its view is
 -- minted with a stable `persist` id, so a restore reserves the sidebar's dock slot; the
 -- plugin keeps the actual snapshot (root + expanded dirs + cursor + the dotfile toggle) in
--- its own isolated shada slice (`nx.shada.plugin()`), and rebuilds the view from it in the
--- `nx.view.on_restore` handler wired by setup(), adopting the reserved window. Gated by
+-- its own isolated shada slice (`btv.shada.plugin()`), and rebuilds the view from it in the
+-- `btv.view.on_restore` handler wired by setup(), adopting the reserved window. Gated by
 -- `config.persist` (default true). Restore takes effect for a session-scoped launch
--- (`--workspace` + `nx.shada.save_layout(true)`) — otherwise the persist id just rides
+-- (`--workspace` + `btv.shada.save_layout(true)`) — otherwise the persist id just rides
 -- along and the WINDOW isn't restored, exactly like any other window. The dotfile toggle
 -- is the exception: it is a preference rather than window state, so setup() applies the
 -- saved value to the config on every launch, whatever build path opens the sidebar.
 --
--- `nx.view.on_restore` is a PULL: registering the handler (in setup(), below) also drains
+-- `btv.view.on_restore` is a PULL: registering the handler (in setup(), below) also drains
 -- any slot core already reserved for us, so this restores correctly even though we load
--- LATE — asynchronously, via `nx.plugins({ config = … })` — on a tick after core's one-shot
+-- LATE — asynchronously, via `btv.plugins({ config = … })` — on a tick after core's one-shot
 -- boot dispatch. Core holds the reserved slot (deferring orphan collapse) until every eager
 -- plugin load settles, so a late registration reliably still claims it.
-local PERSIST_ID = "nxvim-tree"
+local PERSIST_ID = "bemtvi-tree"
 local SESSION_KEY = "session"
 -- Resolved ONCE here, on the module's own stack, so it always attributes to this plugin
 -- file — never to some async/deferred caller whose stack no longer carries it.
-local store = nx.shada.plugin()
+local store = btv.shada.plugin()
 
 -- The snapshot a restoring session left in the store, captured at setup() time — BEFORE an
 -- `open_on_start` build (or any first render) can overwrite the store with a fresh,
@@ -86,12 +86,12 @@ end
 
 -- ----- async helper ----------------------------------------------------------
 
--- Run an async body (which may nx.await fs/ui promises), surfacing any rejection as a
+-- Run an async body (which may btv.await fs/ui promises), surfacing any rejection as a
 -- notification instead of an unhandled promise error.
 local function run(body)
-  nx.async(body)():catch(function(e)
+  btv.async(body)():catch(function(e)
     local msg = type(e) == "table" and e.message or e
-    nx.notify("nxvim-tree: " .. tostring(msg), 4)
+    btv.notify("bemtvi-tree: " .. tostring(msg), 4)
   end)
 end
 
@@ -113,7 +113,7 @@ local reconcile_watches
 local function reserve_gutter()
   local win = tree and tree.view:winid()
   if win then
-    nx.wo[win].signcolumn = "yes"
+    btv.wo[win].signcolumn = "yes"
   end
 end
 -- The session-snapshot helpers the render wrapper persists through (defined below in the
@@ -214,7 +214,7 @@ local function watch_dir(node)
   local entry = { node = node, handle = nil, stopped = false }
   tree._watches[node.path] = entry
   run(function()
-    local w = nx.fs.watch(node.path, { recursive = false })
+    local w = btv.fs.watch(node.path, { recursive = false })
     if entry.stopped then -- collapsed (or root changed) before the watch armed
       pcall(function()
         w:stop()
@@ -222,7 +222,7 @@ local function watch_dir(node)
       return
     end
     entry.handle = w
-    for _ in nx.await_each(w) do
+    for _ in btv.await_each(w) do
       if entry.stopped then
         break
       end
@@ -274,9 +274,9 @@ local function stop_all_watches()
 end
 
 -- Run `fn` once the view's backing buffer exists (its bufnr arrives a tick after the
--- create/mount ops drain). `nx.wait_for` polls between ticks until then.
+-- create/mount ops drain). `btv.wait_for` polls between ticks until then.
 local function when_buf(fn)
-  nx.wait_for(function()
+  btv.wait_for(function()
     return tree and tree.view:bufnr()
   end)
     :next(fn)
@@ -365,7 +365,7 @@ end
 -- descendants) so each directory's parent is loaded before we descend to it. A directory
 -- that has since vanished on disk (its scandir rejects) is skipped, not fatal — a stale
 -- snapshot degrades to a partially-expanded tree, never a failed restore. Awaits; call
--- inside nx.async.
+-- inside btv.async.
 local function restore_expansion(t, paths)
   if not pcall(function()
     model.expand(t, t.root)
@@ -437,16 +437,16 @@ local function build(opts)
 
   tree = {
     root = model.root((restore and restore.root) or M.config.root or vim.fn.getcwd()),
-    ns = nx.ns.create("nxvim-tree"),
+    ns = btv.ns.create("bemtvi-tree"),
     flat = {},
     filter = nil,
     config = M.config,
     -- The persist id opts the view into cross-session restore (unless config.persist is
     -- off); the owning namespace is auto-resolved from this plugin file. On the restore
     -- path we re-create with the SAME id so the sidebar keeps riding future sessions.
-    view = nx.view.create({
-      name = "nxvim-tree",
-      filetype = "nxtree",
+    view = btv.view.create({
+      name = "bemtvi-tree",
+      filetype = "btvtree",
       persist = persist_enabled() and PERSIST_ID or nil,
     }),
     _clipboard = nil,
@@ -477,18 +477,18 @@ local function build(opts)
   -- so it must ride the tree window itself once its id settles (a tick after mount).
   local WINHL = "Normal:NvimTreeNormal,EndOfBuffer:NvimTreeEndOfBuffer,"
     .. "CursorLine:NvimTreeCursorLine,CursorLineNr:NvimTreeCursorLineNr"
-  nx.dock.opt(M.config.position).winhighlight = WINHL
-  nx.wait_for(
+  btv.dock.opt(M.config.position).winhighlight = WINHL
+  btv.wait_for(
     function()
       return tree.view:winid()
     end,
-    { tries = 100, interval = 10, message = "nxvim-tree: window never appeared for chrome setup" }
+    { tries = 100, interval = 10, message = "bemtvi-tree: window never appeared for chrome setup" }
   )
     :next(function(win)
       -- Also set the remap on the window directly, so a restore slot that isn't a
       -- dock still gets the darker background.
-      nx.wo[win].winhighlight = WINHL
-      nx.wo[win].cursorline = true
+      btv.wo[win].winhighlight = WINHL
+      btv.wo[win].cursorline = true
       -- A repo whose status already landed (a rebuild inside a live session) re-pins the
       -- gutter here, since this fresh window starts at the default `signcolumn`.
       if tree._git then
@@ -502,7 +502,7 @@ local function build(opts)
       restore_expansion(tree, restore.expanded or {})
       render({ restore_cursor = false })
       place_cursor(tree, restore.cursor) -- focuses the view…
-      nx.layer.main() -- …so bounce focus back to the editor
+      btv.layer.main() -- …so bounce focus back to the editor
     else
       model.expand(tree, tree.root)
       render({ restore_cursor = false })
@@ -513,7 +513,7 @@ local function build(opts)
     local buf = tree.view:bufnr()
     keymap.install(tree, api)
     if M.config.git then
-      require("nxvim-tree.git").enable(api)
+      require("bemtvi-tree.git").enable(api)
     end
     if type(M.config.on_attach) == "function" then
       M.config.on_attach(api, buf)
@@ -521,7 +521,7 @@ local function build(opts)
     -- Track the cursor for the session snapshot: a plain j/k motion flows through no
     -- render, so we patch the cursor field here (buffer-local, so it only fires on the
     -- tree) and re-persist, reusing the expanded-dir list cached at the last render.
-    nx.on("CursorMoved", { buffer = buf }, function()
+    btv.on("CursorMoved", { buffer = buf }, function()
       if not tree then
         return
       end
@@ -535,7 +535,7 @@ local function build(opts)
     tree._maps_installed = true -- a readiness signal (the action maps are live)
   end)
 
-  nx.layer.main()
+  btv.layer.main()
 end
 
 -- toggle() — build + mount on first use, then toggle the dock's visibility.
@@ -543,7 +543,7 @@ function M.toggle()
   if tree == nil then
     build()
   else
-    nx.dock.toggle(M.config.position)
+    btv.dock.toggle(M.config.position)
   end
 end
 
@@ -552,7 +552,7 @@ function M.open()
   if tree == nil then
     build()
   else
-    nx.dock.show(M.config.position)
+    btv.dock.show(M.config.position)
     tree.view:focus()
   end
 end
@@ -560,8 +560,8 @@ end
 -- close() — hide the sidebar and return focus to the editor.
 function M.close()
   if tree then
-    nx.dock.hide(M.config.position)
-    nx.layer.main()
+    btv.dock.hide(M.config.position)
+    btv.layer.main()
   end
 end
 
@@ -595,7 +595,7 @@ function M.set_root(path)
     model.expand(tree, tree.root)
     render({ restore_cursor = false })
   end)
-  nx.notify("nxvim-tree: root → " .. tree.root.path)
+  btv.notify("bemtvi-tree: root → " .. tree.root.path)
 end
 
 -- destroy() — tear the tree down completely (stop every watch, drop the view buffer,
@@ -629,7 +629,7 @@ function M.reveal(path, opts)
     end
     if not target or target == "" then
       if focus then
-        nx.notify("nxvim-tree: no file to reveal", 3)
+        btv.notify("bemtvi-tree: no file to reveal", 3)
       end
       return
     end
@@ -640,7 +640,7 @@ function M.reveal(path, opts)
     end
     if target:sub(1, #base) ~= base then
       if focus then
-        nx.notify("nxvim-tree: " .. target .. " is outside the tree root", 3)
+        btv.notify("bemtvi-tree: " .. target .. " is outside the tree root", 3)
       end
       return
     end
@@ -674,7 +674,7 @@ function M.reveal(path, opts)
     render({ restore_cursor = false })
     if not node then
       if focus then
-        nx.notify("nxvim-tree: " .. target .. " not found under the root", 3)
+        btv.notify("bemtvi-tree: " .. target .. " not found under the root", 3)
       end
       return
     end
@@ -682,7 +682,7 @@ function M.reveal(path, opts)
       if n == node then
         tree.view:set_cursor(i) -- this focuses the view…
         if not focus then
-          nx.layer.main() -- …so bounce focus back when following.
+          btv.layer.main() -- …so bounce focus back when following.
         end
         return
       end
@@ -757,11 +757,11 @@ end
 function M.register_action(key, fn)
   M.config.mappings[key] = fn
   if tree and tree.view:bufnr() then
-    nx.keymap.set("n", key, function()
+    btv.keymap.set("n", key, function()
       run(function()
         fn(tree, api)
       end)
-    end, { buffer = tree.view:bufnr(), desc = "nxvim-tree: Custom action" })
+    end, { buffer = tree.view:bufnr(), desc = "bemtvi-tree: Custom action" })
   end
 end
 
@@ -777,11 +777,11 @@ local function wire_autocmds()
     return
   end
   autocmds_wired = true
-  nx.on("BufEnter", {}, function()
+  btv.on("BufEnter", {}, function()
     if not tree or not tree.view:winid() then
       return
     end
-    local cur = nx.win.buf(nx.win.current())
+    local cur = btv.win.buf(btv.win.current())
     if cur == tree.view:bufnr() then
       return
     end
@@ -802,13 +802,13 @@ local function wire_autocmds()
   -- derived from the previous theme: a dark-flavour palette left standing on a light
   -- one. `highlights.apply` yields to a theme that DOES style a group, so re-applying
   -- here never fights the colorscheme; it fires after the theme's own highlight calls.
-  nx.on("ColorScheme", {}, function()
+  btv.on("ColorScheme", {}, function()
     highlights.apply(M.config.highlights)
   end)
 end
 
 -- Register the cross-session restore handler (wired once). After a session restore core
--- reserves the sidebar's slot; `nx.view.on_restore` is a PULL, so this registration itself
+-- reserves the sidebar's slot; `btv.view.on_restore` is a PULL, so this registration itself
 -- dispatches here — synchronously, right here in setup() — with the persist id and a `place`
 -- that adopts the reserved window. We rebuild the tree from our own shada snapshot into that
 -- window. Declining a foreign id (`id ~= PERSIST_ID`) returns WITHOUT calling `place`, which
@@ -826,7 +826,7 @@ local function wire_restore()
     return
   end
   restore_wired = true
-  nx.view.on_restore(function(id, place)
+  btv.view.on_restore(function(id, place)
     if id ~= PERSIST_ID then
       return
     end
@@ -884,27 +884,27 @@ function M.setup(opts)
     tree.config = M.config
   end
 
-  nx.command("Tree", function()
+  btv.command("Tree", function()
     M.toggle()
-  end, { desc = "Toggle the nxvim-tree file explorer" })
-  nx.command("TreeOpen", function()
+  end, { desc = "Toggle the bemtvi-tree file explorer" })
+  btv.command("TreeOpen", function()
     M.open()
-  end, { desc = "Open + focus the nxvim-tree file explorer" })
-  nx.command("TreeClose", function()
+  end, { desc = "Open + focus the bemtvi-tree file explorer" })
+  btv.command("TreeClose", function()
     M.close()
-  end, { desc = "Close the nxvim-tree file explorer" })
-  nx.command("TreeRefresh", function()
+  end, { desc = "Close the bemtvi-tree file explorer" })
+  btv.command("TreeRefresh", function()
     M.refresh()
-  end, { desc = "Re-scan the nxvim-tree file explorer" })
-  nx.command("TreeReveal", function()
+  end, { desc = "Re-scan the bemtvi-tree file explorer" })
+  btv.command("TreeReveal", function()
     M.reveal()
-  end, { desc = "Reveal the current file in nxvim-tree" })
+  end, { desc = "Reveal the current file in bemtvi-tree" })
 
   local key = M.config.toggle_key
   if key then
-    nx.keymap.set("n", key, function()
+    btv.keymap.set("n", key, function()
       M.toggle()
-    end, { desc = "Toggle nxvim-tree" })
+    end, { desc = "Toggle bemtvi-tree" })
   end
 
   wire_autocmds()

@@ -1,10 +1,10 @@
--- nxvim-tree.icons — the filename/extension → { glyph, hl } registry.
+-- bemtvi-tree.icons — the filename/extension → { glyph, hl } registry.
 --
 -- A pure-Lua lookup seeded with common file kinds plus the folder glyphs. `get(node,
 -- cfg)` returns the glyph and its highlight group for one node; when `cfg.icons` is
 -- false it falls back to ASCII markers so the tree still works on a terminal without
 -- a Nerd Font. `register(map)` extends the tables at runtime — the extensibility
--- seam surfaced as `require("nxvim-tree").register_icons(...)` and as
+-- seam surfaced as `require("bemtvi-tree").register_icons(...)` and as
 -- `opts.icon_overrides`.
 --
 -- Glyphs are written as `\u{...}` escapes (Nerd-Font v3 private-use codepoints) so
@@ -60,56 +60,56 @@ M._special_names = SPECIAL_NAMES
 
 -- Exact-filename lookup (highest priority).
 local by_name = {
-  ["Cargo.toml"] = { glyph = "\u{e7a8}", hl = "NxTreeIconRust" },
-  ["Cargo.lock"] = { glyph = "\u{f023}", hl = "NxTreeIconLock" },
-  ["package.json"] = { glyph = "\u{e718}", hl = "NxTreeIconJson" },
-  ["package-lock.json"] = { glyph = "\u{f023}", hl = "NxTreeIconLock" },
-  ["tsconfig.json"] = { glyph = "\u{e628}", hl = "NxTreeIconTs" },
-  [".gitignore"] = { glyph = "\u{e702}", hl = "NxTreeIconGit" },
-  [".gitattributes"] = { glyph = "\u{e702}", hl = "NxTreeIconGit" },
-  [".gitmodules"] = { glyph = "\u{e702}", hl = "NxTreeIconGit" },
-  ["README.md"] = { glyph = "\u{f48a}", hl = "NxTreeIconMd" },
-  ["LICENSE"] = { glyph = "\u{f0219}", hl = "NxTreeIconText" },
-  ["Makefile"] = { glyph = "\u{e779}", hl = "NxTreeIconDefault" },
-  ["Dockerfile"] = { glyph = "\u{f308}", hl = "NxTreeIconDefault" },
+  ["Cargo.toml"] = { glyph = "\u{e7a8}", hl = "BtvTreeIconRust" },
+  ["Cargo.lock"] = { glyph = "\u{f023}", hl = "BtvTreeIconLock" },
+  ["package.json"] = { glyph = "\u{e718}", hl = "BtvTreeIconJson" },
+  ["package-lock.json"] = { glyph = "\u{f023}", hl = "BtvTreeIconLock" },
+  ["tsconfig.json"] = { glyph = "\u{e628}", hl = "BtvTreeIconTs" },
+  [".gitignore"] = { glyph = "\u{e702}", hl = "BtvTreeIconGit" },
+  [".gitattributes"] = { glyph = "\u{e702}", hl = "BtvTreeIconGit" },
+  [".gitmodules"] = { glyph = "\u{e702}", hl = "BtvTreeIconGit" },
+  ["README.md"] = { glyph = "\u{f48a}", hl = "BtvTreeIconMd" },
+  ["LICENSE"] = { glyph = "\u{f0219}", hl = "BtvTreeIconText" },
+  ["Makefile"] = { glyph = "\u{e779}", hl = "BtvTreeIconDefault" },
+  ["Dockerfile"] = { glyph = "\u{f308}", hl = "BtvTreeIconDefault" },
 }
 
 -- Lowercased-extension lookup (second priority).
 local by_ext = {
-  rs = { glyph = "\u{e7a8}", hl = "NxTreeIconRust" },
-  lua = { glyph = "\u{e620}", hl = "NxTreeIconLua" },
-  js = { glyph = "\u{e74e}", hl = "NxTreeIconJs" },
-  mjs = { glyph = "\u{e74e}", hl = "NxTreeIconJs" },
-  cjs = { glyph = "\u{e74e}", hl = "NxTreeIconJs" },
-  jsx = { glyph = "\u{e7ba}", hl = "NxTreeIconJs" },
-  ts = { glyph = "\u{e628}", hl = "NxTreeIconTs" },
-  tsx = { glyph = "\u{e7ba}", hl = "NxTreeIconTs" },
-  json = { glyph = "\u{e60b}", hl = "NxTreeIconJson" },
-  toml = { glyph = "\u{e6b2}", hl = "NxTreeIconToml" },
-  yaml = { glyph = "\u{e6a8}", hl = "NxTreeIconToml" },
-  yml = { glyph = "\u{e6a8}", hl = "NxTreeIconToml" },
-  md = { glyph = "\u{f48a}", hl = "NxTreeIconMd" },
-  markdown = { glyph = "\u{f48a}", hl = "NxTreeIconMd" },
-  py = { glyph = "\u{e606}", hl = "NxTreeIconPy" },
-  go = { glyph = "\u{e627}", hl = "NxTreeIconGo" },
-  c = { glyph = "\u{e61e}", hl = "NxTreeIconC" },
-  h = { glyph = "\u{f0fd}", hl = "NxTreeIconC" },
-  cpp = { glyph = "\u{e61d}", hl = "NxTreeIconC" },
-  hpp = { glyph = "\u{f0fd}", hl = "NxTreeIconC" },
-  sh = { glyph = "\u{f489}", hl = "NxTreeIconShell" },
-  bash = { glyph = "\u{f489}", hl = "NxTreeIconShell" },
-  zsh = { glyph = "\u{f489}", hl = "NxTreeIconShell" },
-  fish = { glyph = "\u{f489}", hl = "NxTreeIconShell" },
-  html = { glyph = "\u{e736}", hl = "NxTreeIconHtml" },
-  css = { glyph = "\u{e749}", hl = "NxTreeIconCss" },
-  scss = { glyph = "\u{e749}", hl = "NxTreeIconCss" },
-  png = { glyph = "\u{f1c5}", hl = "NxTreeIconImage" },
-  jpg = { glyph = "\u{f1c5}", hl = "NxTreeIconImage" },
-  jpeg = { glyph = "\u{f1c5}", hl = "NxTreeIconImage" },
-  gif = { glyph = "\u{f1c5}", hl = "NxTreeIconImage" },
-  svg = { glyph = "\u{f1c5}", hl = "NxTreeIconImage" },
-  txt = { glyph = "\u{f15c}", hl = "NxTreeIconText" },
-  lock = { glyph = "\u{f023}", hl = "NxTreeIconLock" },
+  rs = { glyph = "\u{e7a8}", hl = "BtvTreeIconRust" },
+  lua = { glyph = "\u{e620}", hl = "BtvTreeIconLua" },
+  js = { glyph = "\u{e74e}", hl = "BtvTreeIconJs" },
+  mjs = { glyph = "\u{e74e}", hl = "BtvTreeIconJs" },
+  cjs = { glyph = "\u{e74e}", hl = "BtvTreeIconJs" },
+  jsx = { glyph = "\u{e7ba}", hl = "BtvTreeIconJs" },
+  ts = { glyph = "\u{e628}", hl = "BtvTreeIconTs" },
+  tsx = { glyph = "\u{e7ba}", hl = "BtvTreeIconTs" },
+  json = { glyph = "\u{e60b}", hl = "BtvTreeIconJson" },
+  toml = { glyph = "\u{e6b2}", hl = "BtvTreeIconToml" },
+  yaml = { glyph = "\u{e6a8}", hl = "BtvTreeIconToml" },
+  yml = { glyph = "\u{e6a8}", hl = "BtvTreeIconToml" },
+  md = { glyph = "\u{f48a}", hl = "BtvTreeIconMd" },
+  markdown = { glyph = "\u{f48a}", hl = "BtvTreeIconMd" },
+  py = { glyph = "\u{e606}", hl = "BtvTreeIconPy" },
+  go = { glyph = "\u{e627}", hl = "BtvTreeIconGo" },
+  c = { glyph = "\u{e61e}", hl = "BtvTreeIconC" },
+  h = { glyph = "\u{f0fd}", hl = "BtvTreeIconC" },
+  cpp = { glyph = "\u{e61d}", hl = "BtvTreeIconC" },
+  hpp = { glyph = "\u{f0fd}", hl = "BtvTreeIconC" },
+  sh = { glyph = "\u{f489}", hl = "BtvTreeIconShell" },
+  bash = { glyph = "\u{f489}", hl = "BtvTreeIconShell" },
+  zsh = { glyph = "\u{f489}", hl = "BtvTreeIconShell" },
+  fish = { glyph = "\u{f489}", hl = "BtvTreeIconShell" },
+  html = { glyph = "\u{e736}", hl = "BtvTreeIconHtml" },
+  css = { glyph = "\u{e749}", hl = "BtvTreeIconCss" },
+  scss = { glyph = "\u{e749}", hl = "BtvTreeIconCss" },
+  png = { glyph = "\u{f1c5}", hl = "BtvTreeIconImage" },
+  jpg = { glyph = "\u{f1c5}", hl = "BtvTreeIconImage" },
+  jpeg = { glyph = "\u{f1c5}", hl = "BtvTreeIconImage" },
+  gif = { glyph = "\u{f1c5}", hl = "BtvTreeIconImage" },
+  svg = { glyph = "\u{f1c5}", hl = "BtvTreeIconImage" },
+  txt = { glyph = "\u{f15c}", hl = "BtvTreeIconText" },
+  lock = { glyph = "\u{f023}", hl = "BtvTreeIconLock" },
 }
 
 -- get(node, cfg) -> glyph, hl_group. Directories use the open/closed folder glyph
@@ -125,7 +125,7 @@ function M.get(node, cfg)
     return (node.expanded and FOLDER_OPEN or FOLDER_CLOSED), "NvimTreeFolderIcon"
   end
   if not icons_on then
-    return ASCII.file, "NxTreeIconDefault"
+    return ASCII.file, "BtvTreeIconDefault"
   end
   local exact = by_name[node.name]
   if exact then
@@ -136,7 +136,7 @@ function M.get(node, cfg)
   if e then
     return e.glyph, e.hl
   end
-  return FILE_DEFAULT, "NxTreeIconDefault"
+  return FILE_DEFAULT, "BtvTreeIconDefault"
 end
 
 -- register(map) — extend the registry. Keys are extensions (`{ rs = { glyph=, hl= } }`);

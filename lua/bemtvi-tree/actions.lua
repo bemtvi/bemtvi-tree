@@ -1,4 +1,4 @@
--- nxvim-tree.actions — the user-facing operations (open / navigate / file ops).
+-- bemtvi-tree.actions — the user-facing operations (open / navigate / file ops).
 --
 -- Each action is `fn(tree, api)`:
 --   tree   the singleton tree state (root, view, flat, config, clipboard, …)
@@ -9,14 +9,14 @@
 --            api.set_root(path) rebuild the model rooted at `path` and re-render
 --            api.reveal(path)   reveal a path in the tree
 --
--- Actions that touch `nx.fs` await it, so they run inside the async wrapper the
+-- Actions that touch `btv.fs` await it, so they run inside the async wrapper the
 -- keymap layer (and the <CR> dispatch) provide. After a mutation an action re-loads
 -- the affected directory and re-renders with the cursor preserved.
 --
 -- This module is the dispatch target named by `config.ACTIONS`; the names here match
 -- those keys exactly, so `actions[name]` resolves a built-in for the keymap layer.
 
-local model = require("nxvim-tree.model")
+local model = require("bemtvi-tree.model")
 
 local M = {}
 
@@ -54,17 +54,17 @@ end
 
 -- ----- opening ---------------------------------------------------------------
 
--- Yield until the next event-loop tick. A layer cross (nx.layer.main) is queued and
+-- Yield until the next event-loop tick. A layer cross (btv.layer.main) is queued and
 -- only applied at end-of-tick — *after* the editor drains queued ex-commands — so a
 -- split issued in the same tick would target whatever layer is still focused. Awaiting
 -- this lets the focus land first. (See open_file.)
 local function next_tick()
-  return nx.promise.new(function(resolve)
-    nx.on_next_tick(resolve)
+  return btv.promise.new(function(resolve)
+    btv.on_next_tick(resolve)
   end)
 end
 
--- The path to hand nx.open: cwd-relative when the file is under the cwd (`:.`), else
+-- The path to hand btv.open: cwd-relative when the file is under the cwd (`:.`), else
 -- absolute. The editor stores a buffer's name exactly as opened (it only absolutizes
 -- for dedup), so opening relative keeps the buffer name — and everything that displays
 -- it — relative to where the editor was launched.
@@ -76,20 +76,20 @@ end
 -- Splits/tabs cross to the main layer first (so the new window is carved out of the
 -- editor, not the sidebar dock), then open the file in it.
 --
--- The cross MUST settle before the split: `nx.layer.main()` and `vim.cmd("split")`
+-- The cross MUST settle before the split: `btv.layer.main()` and `vim.cmd("split")`
 -- both queue, and the editor runs queued ex-commands *before* the queued layer cross —
 -- so issuing the split in the same tick splits the still-focused tree dock. Awaiting a
 -- tick after the cross makes main the focused layer first; the split (and the open that
 -- follows in the same later tick) then land in the editor.
 local function open_file(node, mode)
   if mode == "edit" or mode == nil then
-    -- nx.open defaults to 'switchbuf'-honoring reuse: if the file is already open in
+    -- btv.open defaults to 'switchbuf'-honoring reuse: if the file is already open in
     -- a window, jump to it instead of reloading a duplicate into the main window.
-    nx.open(open_target(node.path), { where = "main" })
+    btv.open(open_target(node.path), { where = "main" })
     return
   end
-  nx.layer.main()
-  nx.await(next_tick())
+  btv.layer.main()
+  btv.await(next_tick())
   if mode == "split" then
     vim.cmd("split")
   elseif mode == "vsplit" then
@@ -99,7 +99,7 @@ local function open_file(node, mode)
   end
   -- reuse = false: this is an explicit split/tab gesture, so put the file into the
   -- window we just made rather than jumping to another window already showing it.
-  nx.open(open_target(node.path), { reuse = false })
+  btv.open(open_target(node.path), { reuse = false })
 end
 
 -- Toggle a directory node's expansion (lazy-loading its children on first open) and
@@ -134,7 +134,7 @@ end
 -- which places the view cursor on the clicked node *before* the mapping's body runs —
 -- so both actions just read `current(tree)` (the node now under the cursor), exactly
 -- like every keyboard action. (A mouse mapping can also read the raw clicked cell via
--- `nx.getmousepos()`, but the placed cursor is the simpler, sufficient signal here.)
+-- `btv.getmousepos()`, but the placed cursor is the simpler, sufficient signal here.)
 --
 -- The split of work between the two keeps the gestures NON-overlapping, so a double
 -- click never acts twice on one node: a double click fires <LeftMouse> on its first
@@ -203,14 +203,14 @@ M._menu_for = menu_for -- a test/introspection seam (like M.current)
 
 -- mouse_menu — the <RightMouse> action: pop a context menu of operations for the
 -- node under the pointer. A mapped right-click does NOT move the cursor (unlike
--- <LeftMouse>), so the clicked node is resolved from `nx.getmousepos()` — the position
+-- <LeftMouse>), so the clicked node is resolved from `btv.getmousepos()` — the position
 -- the server mirrors before this body runs — rather than `current(tree)`. The cursor is
 -- then anchored on that node so the chosen action (which acts on the node under the
 -- cursor) targets it; the menu interaction spans several ticks, so the move has settled
 -- by the time a choice is confirmed. Right-click only reaches here when the tree is the
 -- focused buffer (a buffer-local map), so the click is always inside this tree.
 function M.mouse_menu(tree, api)
-  local pos = nx.getmousepos()
+  local pos = btv.getmousepos()
   if pos.winid ~= tree.view:winid() or pos.line == 0 then
     return
   end
@@ -221,7 +221,7 @@ function M.mouse_menu(tree, api)
   tree.view:set_cursor(pos.line)
 
   local title = vim.fn.fnamemodify(node.path, ":t")
-  local choice = nx.await(nx.ui.select(menu_for(tree, node), {
+  local choice = btv.await(btv.ui.select(menu_for(tree, node), {
     prompt = title ~= "" and title or node.path,
     format_item = function(it)
       return it.label
@@ -325,24 +325,24 @@ function M.create(tree, api)
     return
   end
   local dir = dir_of(node)
-  local name = nx.await(nx.ui.input({ prompt = "Create (end with / for a directory): " }))
+  local name = btv.await(btv.ui.input({ prompt = "Create (end with / for a directory): " }))
   if not name or name == "" then
     return
   end
   local is_dir = name:sub(-1) == "/"
   local target = model.join(dir.path, (name:gsub("/+$", "")))
-  if nx.await(nx.fs.exists(target)) then
-    return nx.notify("nxvim-tree: " .. target .. " already exists", 3)
+  if btv.await(btv.fs.exists(target)) then
+    return btv.notify("bemtvi-tree: " .. target .. " already exists", 3)
   end
   if is_dir then
-    nx.await(nx.fs.mkdir(target, { recursive = true }))
+    btv.await(btv.fs.mkdir(target, { recursive = true }))
   else
     -- Create any missing parent directories (so "a/b/c.txt" works), then the file.
     local parent = target:match("^(.*)/[^/]+$")
-    if parent and parent ~= "" and not nx.await(nx.fs.exists(parent)) then
-      nx.await(nx.fs.mkdir(parent, { recursive = true }))
+    if parent and parent ~= "" and not btv.await(btv.fs.exists(parent)) then
+      btv.await(btv.fs.mkdir(parent, { recursive = true }))
     end
-    nx.await(nx.fs.write(target, ""))
+    btv.await(btv.fs.write(target, ""))
   end
   reload(tree, api, dir)
 end
@@ -352,11 +352,11 @@ function M.rename(tree, api)
   if not node or node.depth == 0 then
     return
   end
-  local new = nx.await(nx.ui.input({ prompt = "Rename: ", default = node.name }))
+  local new = btv.await(btv.ui.input({ prompt = "Rename: ", default = node.name }))
   if not new or new == "" or new == node.name then
     return
   end
-  nx.await(nx.fs.rename(node.path, model.join(node.parent.path, new)))
+  btv.await(btv.fs.rename(node.path, model.join(node.parent.path, new)))
   reload(tree, api, node.parent)
 end
 
@@ -365,11 +365,11 @@ function M.delete(tree, api)
   if not node or node.depth == 0 then
     return
   end
-  local ok = nx.await(nx.ui.confirm("Delete " .. node.name .. "?", { default = false }))
+  local ok = btv.await(btv.ui.confirm("Delete " .. node.name .. "?", { default = false }))
   if not ok then
     return
   end
-  nx.await(nx.fs.remove(node.path, { recursive = node.type == "directory" }))
+  btv.await(btv.fs.remove(node.path, { recursive = node.type == "directory" }))
   reload(tree, api, node.parent)
 end
 
@@ -382,7 +382,7 @@ local function mark(tree, api, op)
   end
   tree._clipboard = { node = node, op = op }
   api.render({ restore_cursor = true })
-  nx.notify(("nxvim-tree: %s %s (press p to paste)"):format(op, node.name))
+  btv.notify(("bemtvi-tree: %s %s (press p to paste)"):format(op, node.name))
 end
 
 function M.cut(tree, api)
@@ -403,7 +403,7 @@ end
 function M.paste(tree, api)
   local clip = tree._clipboard
   if not clip then
-    return nx.notify("nxvim-tree: nothing to paste (cut with x or copy with c first)", 3)
+    return btv.notify("bemtvi-tree: nothing to paste (cut with x or copy with c first)", 3)
   end
   local node = current(tree)
   if not node then
@@ -413,16 +413,16 @@ function M.paste(tree, api)
   local dir = dir_of(node)
   local dest = model.join(dir.path, src.name)
   if dest == src.path then
-    return nx.notify("nxvim-tree: source and destination are the same", 3)
+    return btv.notify("bemtvi-tree: source and destination are the same", 3)
   end
-  if nx.await(nx.fs.exists(dest)) then
-    return nx.notify("nxvim-tree: " .. dest .. " already exists", 3)
+  if btv.await(btv.fs.exists(dest)) then
+    return btv.notify("bemtvi-tree: " .. dest .. " already exists", 3)
   end
 
   if clip.op == "copy" then
-    nx.await(nx.fs.copy(src.path, dest, { recursive = src.type == "directory" }))
+    btv.await(btv.fs.copy(src.path, dest, { recursive = src.type == "directory" }))
   else
-    nx.await(nx.fs.rename(src.path, dest))
+    btv.await(btv.fs.rename(src.path, dest))
   end
 
   local old_parent = src.parent
@@ -439,9 +439,9 @@ function M.yank_path(tree)
   if not node then
     return
   end
-  nx.reg.set('"', node.path)
-  nx.reg.set("+", node.path)
-  nx.notify("nxvim-tree: yanked " .. node.path)
+  btv.reg.set('"', node.path)
+  btv.reg.set("+", node.path)
+  btv.notify("bemtvi-tree: yanked " .. node.path)
 end
 
 -- ----- view-level actions ----------------------------------------------------
@@ -455,7 +455,7 @@ function M.toggle_hidden(tree, api)
   tree.config.hidden = not tree.config.hidden
   model.refresh(tree, tree.root)
   api.render({ restore_cursor = true })
-  nx.notify("nxvim-tree: hidden files " .. (tree.config.hidden and "shown" or "hidden"))
+  btv.notify("bemtvi-tree: hidden files " .. (tree.config.hidden and "shown" or "hidden"))
 end
 
 -- Flip git-ignored entries between dimmed and hidden. Unlike `toggle_hidden` this needs
@@ -467,12 +467,12 @@ function M.toggle_git_ignored(tree, api)
     -- out (`git = false`) nothing ever computes the ignored set, so neither mode shows
     -- anything — and toggling anyway would persist a preference (see the session
     -- snapshot) that silently takes hold the day git is turned back on.
-    return nx.notify("nxvim-tree: git_ignored does nothing while `git = false`", 3)
+    return btv.notify("bemtvi-tree: git_ignored does nothing while `git = false`", 3)
   end
   tree.config.git_ignored = (tree.config.git_ignored == "hide") and "dim" or "hide"
   api.render({ restore_cursor = true })
-  nx.notify(
-    "nxvim-tree: git-ignored entries "
+  btv.notify(
+    "bemtvi-tree: git-ignored entries "
       .. (tree.config.git_ignored == "hide" and "hidden" or "dimmed")
   )
 end
@@ -485,11 +485,11 @@ function M.toggle_filters(tree, api)
     -- Refuse rather than flip a switch over an empty set: nothing would change now, and
     -- the flip would persist (see the session snapshot) to silently suppress the filters
     -- the day some get configured.
-    return nx.notify("nxvim-tree: no `filters` are configured", 3)
+    return btv.notify("bemtvi-tree: no `filters` are configured", 3)
   end
   tree.config.filters_enabled = tree.config.filters_enabled == false
   api.render({ restore_cursor = true })
-  nx.notify("nxvim-tree: filters " .. (tree.config.filters_enabled and "applied" or "suspended"))
+  btv.notify("bemtvi-tree: filters " .. (tree.config.filters_enabled and "applied" or "suspended"))
 end
 
 function M.reveal(tree, api)
@@ -497,7 +497,7 @@ function M.reveal(tree, api)
 end
 
 function M.filter(tree, api)
-  local q = nx.await(nx.ui.input({ prompt = "Filter: ", default = tree.filter or "" }))
+  local q = btv.await(btv.ui.input({ prompt = "Filter: ", default = tree.filter or "" }))
   if q == nil then
     return -- cancelled: keep the current filter
   end

@@ -1,9 +1,9 @@
--- nxvim-tree.model — the node tree, lazy directory loading, and flatten-to-visible.
+-- bemtvi-tree.model — the node tree, lazy directory loading, and flatten-to-visible.
 --
 -- A node is `{ path, name, type, depth, parent, expanded, loaded, children, _last }`:
 --   path      absolute filesystem path
 --   name      basename (the root node's `name` is its full path, shown as a header)
---   type      "file" | "directory" | "link"   (lstat-flavoured, from nx.fs.readdir)
+--   type      "file" | "directory" | "link"   (lstat-flavoured, from btv.fs.readdir)
 --   depth     0 for the root, +1 per level
 --   expanded  the directory is open (its children are shown)
 --   loaded    the children were scandir'd at least once (lazy: only on first expand)
@@ -11,8 +11,8 @@
 --   _last     true when this node is the last among its siblings (for tree guides)
 --
 -- Everything here is pure data + async fs reads — no editor calls. `load` (and the
--- callers that drive it: expand/refresh) await `nx.fs`, so run them inside an
--- `nx.async` coroutine; `flatten` / `node` / `find_child` are synchronous.
+-- callers that drive it: expand/refresh) await `btv.fs`, so run them inside an
+-- `btv.async` coroutine; `flatten` / `node` / `find_child` are synchronous.
 
 local M = {}
 
@@ -66,13 +66,13 @@ local function comparator(cfg)
   end
 end
 
--- load(tree, node) — scandir `node` (ONE nx.fs.readdir round-trip, kind included),
+-- load(tree, node) — scandir `node` (ONE btv.fs.readdir round-trip, kind included),
 -- build its child nodes sorted per cfg with the hidden filter applied, and mark it
--- `loaded`. Awaits; call inside nx.async. Re-loading preserves the expand/load state
+-- `loaded`. Awaits; call inside btv.async. Re-loading preserves the expand/load state
 -- of children that still exist (matched by name), so a refresh never collapses the
 -- tree.
 function M.load(tree, node)
-  local entries = nx.await(nx.fs.readdir(node.path))
+  local entries = btv.await(btv.fs.readdir(node.path))
   table.sort(entries, comparator(tree.config))
 
   local prev = {}
@@ -130,7 +130,7 @@ function M.collapse_all(node)
 end
 
 -- refresh(tree, node) — re-scandir `node` and every still-loaded descendant directory,
--- preserving expansion. Awaits; call inside nx.async.
+-- preserving expansion. Awaits; call inside btv.async.
 function M.refresh(tree, node)
   if not node.loaded then
     return

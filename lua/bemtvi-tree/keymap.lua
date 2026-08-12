@@ -1,4 +1,4 @@
--- nxvim-tree.keymap — install the configured key bindings on the tree buffer.
+-- bemtvi-tree.keymap — install the configured key bindings on the tree buffer.
 --
 -- `cfg.mappings` is a `key -> action` table (defaults in config.lua). Each value is
 -- one of:
@@ -8,11 +8,11 @@
 --
 -- Every binding is buffer-local on the view buffer (so it only fires while the tree
 -- is focused) and runs inside `api.run` — the async, error-surfacing wrapper — so an
--- action may freely `nx.await` fs / ui promises and any rejection becomes a notify
+-- action may freely `btv.await` fs / ui promises and any rejection becomes a notify
 -- rather than an unhandled error.
 
-local actions = require("nxvim-tree.actions")
-local config = require("nxvim-tree.config")
+local actions = require("bemtvi-tree.actions")
+local config = require("bemtvi-tree.config")
 
 local M = {}
 
@@ -21,7 +21,7 @@ local M = {}
 function M.install(tree, api)
   local buf = tree.view:bufnr()
   if not buf then
-    nx.notify("nxvim-tree: cannot install maps before the view buffer exists", 4)
+    btv.notify("bemtvi-tree: cannot install maps before the view buffer exists", 4)
     return false
   end
 
@@ -40,15 +40,15 @@ function M.install(tree, api)
           label = action
         end
         if not fn then
-          nx.notify("nxvim-tree: no built-in action '" .. tostring(action) .. "'", 4)
+          btv.notify("bemtvi-tree: no built-in action '" .. tostring(action) .. "'", 4)
         end
       end
       if fn then
-        nx.keymap.set("n", key, function()
+        btv.keymap.set("n", key, function()
           api.run(function()
             fn(tree, api)
           end)
-        end, { buffer = buf, desc = "nxvim-tree: " .. label })
+        end, { buffer = buf, desc = "bemtvi-tree: " .. label })
       end
     end
   end

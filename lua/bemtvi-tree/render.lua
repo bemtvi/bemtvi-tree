@@ -1,4 +1,4 @@
--- nxvim-tree.render — project the model into view lines + extmark decoration.
+-- bemtvi-tree.render — project the model into view lines + extmark decoration.
 --
 -- `render(tree[, opts])` flattens the (optionally filtered) tree, builds one display
 -- line per visible node — `<indent guides><icon> <name>` — pushes them through
@@ -11,16 +11,16 @@
 -- Decoration is painted in the SAME tick as the lines (so the tree never flashes
 -- undecorated on an update) via `view:set_decor`. That needs the view's real buffer
 -- number; it exists for every render after the first, so only the very first render —
--- before the create/mount ops have drained — defers a tick with `nx.schedule`.
+-- before the create/mount ops have drained — defers a tick with `btv.schedule`.
 --
 -- `opts.restore_cursor` (default false): after replacing the lines, move the cursor
 -- back onto the node it was on. Done ONLY when the tree window is the focused window
 -- — `view:set_cursor` focuses the view, so restoring during a background (watch)
 -- refresh would yank focus out of the editor. Action handlers pass it true.
 
-local model = require("nxvim-tree.model")
-local icons = require("nxvim-tree.icons")
-local config = require("nxvim-tree.config")
+local model = require("bemtvi-tree.model")
+local icons = require("bemtvi-tree.icons")
+local config = require("bemtvi-tree.config")
 
 local M = {}
 
@@ -117,7 +117,7 @@ local function apply_git_ignored(entries, tree)
   if not (state and state.root) then
     return entries -- not in a repository (or git status hasn't landed yet)
   end
-  local git = require("nxvim-tree.git")
+  local git = require("bemtvi-tree.git")
   local out = {}
   for _, n in ipairs(entries) do
     if n.depth == 0 or not git.is_ignored(state.ignored, n.path, state.root) then
@@ -182,8 +182,8 @@ end
 -- BufEnter while the tree is open).
 local function open_paths()
   local set = {}
-  for _, b in ipairs(nx.buf.list()) do
-    local name = nx.buf.name(b)
+  for _, b in ipairs(btv.buf.list()) do
+    local name = btv.buf.name(b)
     if name and name ~= "" then
       set[vim.fn.fnamemodify(name, ":p")] = true
     end
@@ -289,7 +289,7 @@ function M.render(tree, opts)
 
   -- Restore the cursor onto the same node — only while the tree is focused, so a
   -- background refresh never steals focus from the editor (set_cursor focuses).
-  if keep and nx.win.current() == tree.view:winid() then
+  if keep and btv.win.current() == tree.view:winid() then
     for i, n in ipairs(entries) do
       if n == keep then
         tree.view:set_cursor(i)
@@ -306,7 +306,7 @@ function M.render(tree, opts)
   if tree.view:bufnr() then
     tree.view:set_decor(tree.ns, marks)
   else
-    nx.schedule(function()
+    btv.schedule(function()
       if tree.view:bufnr() then
         tree.view:set_decor(tree.ns, marks)
       end

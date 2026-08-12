@@ -1,16 +1,16 @@
--- nxvim-tree.git — the built-in git-status decorator, ON by default (`git = false` opts out).
+-- bemtvi-tree.git — the built-in git-status decorator, ON by default (`git = false` opts out).
 --
 -- Zero coupling with the tree's core: it only uses the decorator seam
 -- (`api.register_decorator`) and `api.refresh()`. It reads the repository through the
--- native `nx.git` engine (gix — no `git` binary is spawned), builds a path → status
+-- native `btv.git` engine (gix — no `git` binary is spawned), builds a path → status
 -- map, and a decorator turns that into a gutter sign per changed file plus a "dirty
 -- dot" on directories that contain a change. It re-fetches on `BufWritePost`. With
 -- `git = false` none of this runs; a non-git directory simply leaves the tree unmarked
 -- (one `discover` that rejects, then silence), which is why the default can be ON.
 --
--- `nx.git` (not `nx.git_local`) is deliberate: the status must describe the files the
+-- `btv.git` (not `btv.git_local`) is deliberate: the status must describe the files the
 -- tree is SHOWING, so in a daemon / remote session it has to run where those files
--- live. `nx.git` routes to the session's side; `nx.git_local` would always answer about
+-- live. `btv.git` routes to the session's side; `btv.git_local` would always answer about
 -- the client's disk and mark the wrong repo.
 --
 -- Two pure helpers are exported for the test suite: `classify(code)` (a 2-char
@@ -50,7 +50,7 @@ function M.classify(code)
   return { sign = "~", hl = "NvimTreeGitDirty" }
 end
 
--- index(root, entries) -> file_status, dir_dirty, ignored. Turn `nx.git.status`'s entry
+-- index(root, entries) -> file_status, dir_dirty, ignored. Turn `btv.git.status`'s entry
 -- list into the three maps the decorator reads: `abspath -> { sign, hl }` for changed
 -- files, `abspath -> true` for every ancestor directory of a change, and
 -- `abspath -> true` for each git-ignored path.
@@ -59,7 +59,7 @@ end
 -- the tree may be rooted at a subdirectory (or above the repo), so joining against
 -- anything else would key the map on paths that never match a node.
 --
--- `nx.git.status` hands back exactly one entry per path with both porcelain columns
+-- `btv.git.status` hands back exactly one entry per path with both porcelain columns
 -- filled (an untracked file reads `??`, an ignored one `!!`), so the XY code is a plain
 -- concatenation — there is nothing to fold or re-spell here.
 --
@@ -149,14 +149,14 @@ function M.enable(api)
     if not root then
       return
     end
-    nx.async(function()
+    btv.async(function()
       -- `discover` locates the repository (and rejects ENOREPO when there isn't one);
       -- its root is what the status paths are relative to.
-      local repo = nx.await(nx.git.discover(root))
+      local repo = btv.await(btv.git.discover(root))
       -- `ignored = true` is what makes a `target/` dimmable at all; the engine collapses
       -- a wholly-ignored directory into ONE entry, so this stays cheap (Phase 1 of
-      -- docs/plans/2026-07-25-git-status-in-the-tree.md in the nxvim repo).
-      local st = nx.await(nx.git.status(root, { ignored = true }))
+      -- docs/plans/2026-07-25-git-status-in-the-tree.md in the bemtvi repo).
+      local st = btv.await(btv.git.status(root, { ignored = true }))
       file_status, dir_dirty, ignored = M.index(repo.root, st.entries)
       repo_root = repo.root
       -- Reaching here means we ARE in a repository: hand the tree the repo root (which
@@ -172,11 +172,11 @@ function M.enable(api)
       if code == "ENOREPO" then
         return
       end
-      nx.notify("nxvim-tree.git: " .. tostring(type(e) == "table" and e.message or e), 4)
+      btv.notify("bemtvi-tree.git: " .. tostring(type(e) == "table" and e.message or e), 4)
     end)
   end
 
-  nx.on("BufWritePost", {}, fetch)
+  btv.on("BufWritePost", {}, fetch)
   fetch() -- initial paint
 end
 
