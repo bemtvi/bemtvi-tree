@@ -1,29 +1,30 @@
-*bemtvi-tree.txt*                            A dockable file explorer for bemtvi
+*bemtvi-tree.txt*                          A dockable file explorer for bemtvi
 
 ==============================================================================
-Table of Contents                               *bemtvi-tree-table-of-contents*
+Table of Contents                              *bemtvi-tree-table-of-contents*
 
-1. Features                                              |bemtvi-tree-features|
-2. Install                                                |bemtvi-tree-install|
-3. Configuration                                    |bemtvi-tree-configuration|
-4. Filters                                                |bemtvi-tree-filters|
-5. Persistence                                        |bemtvi-tree-persistence|
-6. Commands                                              |bemtvi-tree-commands|
-7. Key bindings                                      |bemtvi-tree-key-bindings|
-8. Mouse                                                    |bemtvi-tree-mouse|
-9. Extending                                            |bemtvi-tree-extending|
-  - Icons                                         |bemtvi-tree-extending-icons|
-  - Decorators                               |bemtvi-tree-extending-decorators|
-  - Actions                                     |bemtvi-tree-extending-actions|
-  - on_attach                                 |bemtvi-tree-extending-on_attach|
-10. Highlights                                         |bemtvi-tree-highlights|
-11. Git status                                         |bemtvi-tree-git-status|
-  - Ignored entries                    |bemtvi-tree-git-status-ignored-entries|
-12. Module API                                         |bemtvi-tree-module-api|
-13. Trying it locally                           |bemtvi-tree-trying-it-locally|
-14. Tests                                                   |bemtvi-tree-tests|
+1. Features                                             |bemtvi-tree-features|
+2. Install                                               |bemtvi-tree-install|
+3. Configuration                                   |bemtvi-tree-configuration|
+4. Filters                                               |bemtvi-tree-filters|
+5. Persistence                                       |bemtvi-tree-persistence|
+6. Commands                                             |bemtvi-tree-commands|
+7. Key bindings                                     |bemtvi-tree-key-bindings|
+8. Mouse                                                   |bemtvi-tree-mouse|
+9. Extending                                           |bemtvi-tree-extending|
+  - Icons                                        |bemtvi-tree-extending-icons|
+  - Decorators                              |bemtvi-tree-extending-decorators|
+  - Actions                                    |bemtvi-tree-extending-actions|
+  - on_attach                                |bemtvi-tree-extending-on_attach|
+10. Highlights                                        |bemtvi-tree-highlights|
+11. Git status                                        |bemtvi-tree-git-status|
+  - Ignored entries                   |bemtvi-tree-git-status-ignored-entries|
+12. Module API                                        |bemtvi-tree-module-api|
+13. Trying it locally                          |bemtvi-tree-trying-it-locally|
+14. Tests                                                  |bemtvi-tree-tests|
 
-A fast, dockable, fully-featured file explorer for bemtvi — the official tree.
+A fast, dockable, fully-featured file explorer for bemtvi — the official
+tree.
 
 It is built entirely on the native `btv.*` plugin API (ADR 0002): no
 buffer-mutation hacks, no bespoke rendering loop. The tree's lines are owned
@@ -47,7 +48,7 @@ it.
 
 
 ==============================================================================
-1. Features                                              *bemtvi-tree-features*
+1. Features                                             *bemtvi-tree-features*
 
 - Lazy, watched tree — directories scandir on first expand; each
     expanded directory gets its own `btv.fs` watch that auto-refreshes it
@@ -88,7 +89,7 @@ it.
 
 
 ==============================================================================
-2. Install                                                *bemtvi-tree-install*
+2. Install                                               *bemtvi-tree-install*
 
 Declare it with the built-in `:Plugins` manager in your `init.lua`:
 
@@ -107,7 +108,7 @@ Then run `:PluginSync` to clone it, and press `<leader>e` (or run `:Tree`).
 
 
 ==============================================================================
-3. Configuration                                    *bemtvi-tree-configuration*
+3. Configuration                                   *bemtvi-tree-configuration*
 
 `setup()` takes an optional table; the defaults are:
 
@@ -145,7 +146,7 @@ that does not exist, or an unparseable `filters` glob all raise from `setup()`.
 
 
 ==============================================================================
-4. Filters                                                *bemtvi-tree-filters*
+4. Filters                                               *bemtvi-tree-filters*
 
 `filters` hides entries by glob. Git already hides the build output worth
 hiding (see |bemtvi-tree-ignored-entries|), so this is for the rest: a vendored
@@ -187,7 +188,7 @@ the filters you add later.
 
 
 ==============================================================================
-5. Persistence                                        *bemtvi-tree-persistence*
+5. Persistence                                       *bemtvi-tree-persistence*
 
 With `persist = true` (the default) the sidebar rides a workspace session: on
 restart bemtvi-tree reopens it in its dock, at the same root, with the same
@@ -220,7 +221,7 @@ out entirely.
 
 
 ==============================================================================
-6. Commands                                              *bemtvi-tree-commands*
+6. Commands                                             *bemtvi-tree-commands*
 
 >
     :Tree          toggle the sidebar
@@ -232,7 +233,7 @@ out entirely.
 
 
 ==============================================================================
-7. Key bindings                                      *bemtvi-tree-key-bindings*
+7. Key bindings                                     *bemtvi-tree-key-bindings*
 
 All bindings are buffer-local on the tree and fully configurable through
 `opts.mappings` — a `key → action` table. A value is a built-in action
@@ -313,7 +314,7 @@ That list is also available at runtime as
 
 
 ==============================================================================
-8. Mouse                                                    *bemtvi-tree-mouse*
+8. Mouse                                                   *bemtvi-tree-mouse*
 
 The mouse is on by default:
 
@@ -353,12 +354,12 @@ Turn the mouse off — or remap it — like any other key:
 
 
 ==============================================================================
-9. Extending                                            *bemtvi-tree-extending*
+9. Extending                                           *bemtvi-tree-extending*
 
 The plugin is built to be extended without forking it.
 
 
-ICONS                                             *bemtvi-tree-extending-icons*
+ICONS                                            *bemtvi-tree-extending-icons*
 
 Extend the extension / filename registry:
 
@@ -372,7 +373,7 @@ Extend the extension / filename registry:
 The same table can be passed at setup time as `icon_overrides`.
 
 
-DECORATORS                                   *bemtvi-tree-extending-decorators*
+DECORATORS                                  *bemtvi-tree-extending-decorators*
 
 Add a sign, highlight, or virtual text per node. A decorator is `fn(node) -> {
 sign_text=, sign_hl=, hl=, virt_text= }` (or `nil`), merged into every visible
@@ -388,11 +389,11 @@ decorator:
 <
 
 
-ACTIONS                                         *bemtvi-tree-extending-actions*
+ACTIONS                                        *bemtvi-tree-extending-actions*
 
 Bind a key to `fn(tree, api)`, run inside the async error-surfacing wrapper (so
-it may `btv.await` freely, and a rejection becomes a notification rather than an
-unhandled error):
+it may `btv.await` freely, and a rejection becomes a notification rather than
+an unhandled error):
 
 >lua
     require("bemtvi-tree").register_action("gx", function(_tree, api)
@@ -417,7 +418,7 @@ unhandled error):
 <
 
 
-ON_ATTACH                                     *bemtvi-tree-extending-on_attach*
+ON_ATTACH                                    *bemtvi-tree-extending-on_attach*
 
 Run once when the tree buffer exists, for buffer-scoped maps and options:
 
@@ -429,7 +430,7 @@ Run once when the tree buffer exists, for buffer-scoped maps and options:
 
 
 ==============================================================================
-10. Highlights                                         *bemtvi-tree-highlights*
+10. Highlights                                        *bemtvi-tree-highlights*
 
 The explorer uses the canonical `NvimTree*` highlight group names from
 nvim-tree.lua — so a ported colorscheme that already styles those groups
@@ -489,12 +490,12 @@ can likewise be overridden.
 
 
 ==============================================================================
-11. Git status                                         *bemtvi-tree-git-status*
+11. Git status                                        *bemtvi-tree-git-status*
 
 The decorator is ON by default. The tree reads the repository through the
-native `btv.git` engine (gix — no `git` binary is spawned, and nothing blocks:
-every op is a promise settled off the editor tick), builds a path → status
-map, and paints each entry accordingly. It re-fetches on `BufWritePost`.
+native `btv.git` engine (gix — no `git` binary is spawned, and nothing
+blocks: every op is a promise settled off the editor tick), builds a path →
+status map, and paints each entry accordingly. It re-fetches on `BufWritePost`.
 
 A status shows up in two places, neither of which can move the filename:
 
@@ -520,7 +521,7 @@ you edit. Outside a repository no sign can ever appear, so the column is _not_
 reserved there — a narrow sidebar keeps the space.
 
 
-IGNORED ENTRIES                        *bemtvi-tree-git-status-ignored-entries*
+IGNORED ENTRIES                       *bemtvi-tree-git-status-ignored-entries*
 
 `git_ignored` decides what happens to git-ignored paths:
 
@@ -563,7 +564,7 @@ has nothing to act on.
 
 
 ==============================================================================
-12. Module API                                         *bemtvi-tree-module-api*
+12. Module API                                        *bemtvi-tree-module-api*
 
 Beyond `setup()` and the extensibility registries, the module exposes the
 lifecycle directly, for scripting and for your own keymaps:
@@ -587,7 +588,7 @@ pass `{ focus = false }` to move the cursor but bounce focus back to the editor
 
 
 ==============================================================================
-13. Trying it locally                           *bemtvi-tree-trying-it-locally*
+13. Trying it locally                          *bemtvi-tree-trying-it-locally*
 
 This repo ships a runnable demo:
 
@@ -600,7 +601,7 @@ plugin straight from this checkout).
 
 
 ==============================================================================
-14. Tests                                                   *bemtvi-tree-tests*
+14. Tests                                                  *bemtvi-tree-tests*
 
 >sh
     bemtvi --test-plugin .
