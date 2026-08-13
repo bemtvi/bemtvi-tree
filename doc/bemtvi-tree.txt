@@ -96,7 +96,7 @@ Declare it with the built-in `:Plugins` manager in your `init.lua`:
 >lua
     btv.plugins({
       {
-        "davidrios/bemtvi-tree",
+        "bemtvi/bemtvi-tree",
         config = function()
           require("bemtvi-tree").setup({})
         end,

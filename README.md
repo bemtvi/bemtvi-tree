@@ -1,7 +1,7 @@
 # bemtvi-tree
 
 A fast, dockable, fully-featured **file explorer** for
-[bemtvi](https://github.com/davidrios/bemtvi) — the official tree.
+[bemtvi](https://github.com/bemtvi/bemtvi) — the official tree.
 
 It is built entirely on the native `btv.*` plugin API (ADR 0002): no buffer-mutation
 hacks, no bespoke rendering loop. The tree's lines are owned by a read-only
@@ -46,7 +46,7 @@ Declare it with the built-in `:Plugins` manager in your `init.lua`:
 ```lua
 btv.plugins({
   {
-    "davidrios/bemtvi-tree",
+    "bemtvi/bemtvi-tree",
     config = function()
       require("bemtvi-tree").setup({})
     end,

@@ -43,7 +43,7 @@ vim.g.mapleader = " "
 btv.shada.save_layout(true)
 
 -- Load the plugin straight from this repo (a local-dev spec: `dir` is never cloned).
--- A real config would instead use `{ "davidrios/bemtvi-tree", config = ... }` and
+-- A real config would instead use `{ "bemtvi/bemtvi-tree", config = ... }` and
 -- `:PluginSync`.
 btv.plugins({
   {
