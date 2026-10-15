@@ -158,7 +158,7 @@ end
 -- editor. Directories are left to mouse_click (the double-click's first press already
 -- toggled the directory), so this handles files only — keeping the two gestures from
 -- ever both acting on the same node.
-function M.mouse_open(tree, api)
+function M.mouse_open(tree, _api)
   local node = current(tree)
   if node and node.type ~= "directory" then
     open_file(node, "edit")
@@ -492,7 +492,7 @@ function M.toggle_filters(tree, api)
   btv.notify("bemtvi-tree: filters " .. (tree.config.filters_enabled and "applied" or "suspended"))
 end
 
-function M.reveal(tree, api)
+function M.reveal(_tree, api)
   api.reveal()
 end
 
@@ -512,7 +512,7 @@ function M.clear_filter(tree, api)
   end
 end
 
-function M.close(tree, api)
+function M.close(_tree, api)
   api.close()
 end
 
