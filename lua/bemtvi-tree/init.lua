@@ -276,9 +276,10 @@ end
 -- Run `fn` once the view's backing buffer exists (its bufnr arrives a tick after the
 -- create/mount ops drain). `btv.wait_for` polls between ticks until then.
 local function when_buf(fn)
-  btv.wait_for(function()
-    return tree and tree.view:bufnr()
-  end)
+  btv
+    .wait_for(function()
+      return tree and tree.view:bufnr()
+    end)
     :next(fn)
     :catch(function() end)
 end
@@ -478,12 +479,17 @@ local function build(opts)
   local WINHL = "Normal:NvimTreeNormal,EndOfBuffer:NvimTreeEndOfBuffer,"
     .. "CursorLine:NvimTreeCursorLine,CursorLineNr:NvimTreeCursorLineNr"
   btv.dock.opt(M.config.position).winhighlight = WINHL
-  btv.wait_for(
-    function()
-      return tree.view:winid()
-    end,
-    { tries = 100, interval = 10, message = "bemtvi-tree: window never appeared for chrome setup" }
-  )
+  btv
+    .wait_for(
+      function()
+        return tree.view:winid()
+      end,
+      {
+        tries = 100,
+        interval = 10,
+        message = "bemtvi-tree: window never appeared for chrome setup",
+      }
+    )
     :next(function(win)
       -- Also set the remap on the window directly, so a restore slot that isn't a
       -- dock still gets the darker background.

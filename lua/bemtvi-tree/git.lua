@@ -149,31 +149,33 @@ function M.enable(api)
     if not root then
       return
     end
-    btv.async(function()
-      -- `discover` locates the repository (and rejects ENOREPO when there isn't one);
-      -- its root is what the status paths are relative to.
-      local repo = btv.await(btv.git.discover(root))
-      -- `ignored = true` is what makes a `target/` dimmable at all; the engine collapses
-      -- a wholly-ignored directory into ONE entry, so this stays cheap (Phase 1 of
-      -- docs/plans/2026-07-25-git-status-in-the-tree.md in the bemtvi repo).
-      local st = btv.await(btv.git.status(root, { ignored = true }))
-      file_status, dir_dirty, ignored = M.index(repo.root, st.entries)
-      repo_root = repo.root
-      -- Reaching here means we ARE in a repository: hand the tree the repo root (which
-      -- pins the always-reserved sign gutter — never in a non-repo, where no sign can
-      -- ever appear) and the ignored set (which drives the hide filter).
-      api.set_git_state({ root = repo.root, ignored = ignored })
-      api.refresh()
-    end)():catch(function(e)
-      -- A tree rooted outside any repository is an ordinary state — the common one, now
-      -- that the decorator is on by default: leave the tree unmarked and stay quiet.
-      -- Anything else (a broken repo, no git engine in a web session) is surfaced.
-      local code = type(e) == "table" and e.code or nil
-      if code == "ENOREPO" then
-        return
-      end
-      btv.notify("bemtvi-tree.git: " .. tostring(type(e) == "table" and e.message or e), 4)
-    end)
+    btv
+      .async(function()
+        -- `discover` locates the repository (and rejects ENOREPO when there isn't one);
+        -- its root is what the status paths are relative to.
+        local repo = btv.await(btv.git.discover(root))
+        -- `ignored = true` is what makes a `target/` dimmable at all; the engine collapses
+        -- a wholly-ignored directory into ONE entry, so this stays cheap (Phase 1 of
+        -- docs/plans/2026-07-25-git-status-in-the-tree.md in the bemtvi repo).
+        local st = btv.await(btv.git.status(root, { ignored = true }))
+        file_status, dir_dirty, ignored = M.index(repo.root, st.entries)
+        repo_root = repo.root
+        -- Reaching here means we ARE in a repository: hand the tree the repo root (which
+        -- pins the always-reserved sign gutter — never in a non-repo, where no sign can
+        -- ever appear) and the ignored set (which drives the hide filter).
+        api.set_git_state({ root = repo.root, ignored = ignored })
+        api.refresh()
+      end)()
+      :catch(function(e)
+        -- A tree rooted outside any repository is an ordinary state — the common one, now
+        -- that the decorator is on by default: leave the tree unmarked and stay quiet.
+        -- Anything else (a broken repo, no git engine in a web session) is surfaced.
+        local code = type(e) == "table" and e.code or nil
+        if code == "ENOREPO" then
+          return
+        end
+        btv.notify("bemtvi-tree.git: " .. tostring(type(e) == "table" and e.message or e), 4)
+      end)
   end
 
   btv.on("BufWritePost", {}, fetch)
