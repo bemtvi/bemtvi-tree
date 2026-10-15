@@ -35,7 +35,7 @@
 --   q                        close the sidebar
 --
 -- The leader is space here; set it before anything maps <leader>.
-vim.g.mapleader = " "
+btv.g.mapleader = " "
 
 -- Opt the window/tab layout into the workspace-session capture, so a `--workspace` launch
 -- restores the sidebar (root + expanded dirs + cursor) across a restart. Harmless without
@@ -48,7 +48,7 @@ btv.shada.save_layout(true)
 btv.plugins({
   {
     name = "bemtvi-tree",
-    dir = vim.fn.expand("<sfile>:p:h:h"), -- the repo root (this file's grandparent dir)
+    dir = btv.expand("<sfile>:p:h:h"), -- the repo root (this file's grandparent dir)
     config = function()
       require("bemtvi-tree").setup({
         width = 34,

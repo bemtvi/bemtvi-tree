@@ -437,7 +437,7 @@ local function build(opts)
   end
 
   tree = {
-    root = model.root((restore and restore.root) or M.config.root or vim.fn.getcwd()),
+    root = model.root((restore and restore.root) or M.config.root or btv.cwd()),
     ns = btv.ns.create("bemtvi-tree"),
     flat = {},
     filter = nil,
@@ -628,7 +628,7 @@ function M.reveal(path, opts)
   run(function()
     local target = path
     if not target or target == "" then
-      target = vim.fn.expand("%:p")
+      target = btv.expand("%:p")
     end
     if not target or target == "" then
       if focus then
@@ -789,7 +789,7 @@ local function wire_autocmds()
       return
     end
     if tree.config.follow then
-      local name = vim.fn.expand("%:p")
+      local name = btv.expand("%:p")
       if name and name ~= "" then
         M.reveal(name, { focus = false }) -- reveal renders, refreshing the opened-file tint
         return

@@ -35,7 +35,7 @@ end
 local function count_showing(name)
   local n = 0
   for _, w in ipairs(btv.win.list()) do
-    if vim.fn.fnamemodify(vim.api.nvim_buf_get_name(btv.win.buf(w)), ":t") == name then
+    if btv.fname.modify(btv.buf.name(btv.win.buf(w)), ":t") == name then
       n = n + 1
     end
   end
@@ -44,7 +44,7 @@ end
 
 -- The basename of the focused window's buffer.
 local function current_name()
-  return vim.fn.fnamemodify(vim.fn.expand("%:p"), ":t")
+  return btv.fname.modify(btv.expand("%:p"), ":t")
 end
 
 -- Open the tree, wait until it has rendered and its action maps are live, and focus
@@ -65,7 +65,7 @@ btv.test.describe("bemtvi-tree", function()
     -- The filter is bound to `<leader>/`, and `btv.keymap.set` bakes the leader in force
     -- at INSTALL time (which is the tree build, below/later — not now). Pin it to space
     -- so the tests can feed a stable `" /"` instead of depending on vim's `\` default.
-    vim.g.mapleader = " "
+    btv.g.mapleader = " "
     ROOT = btv.test.tempdir()
     btv.await(fs.write(model.join(ROOT, "readme.txt"), "hi"))
     btv.await(fs.mkdir(model.join(ROOT, "src")))
@@ -231,7 +231,7 @@ btv.test.describe("bemtvi-tree", function()
     -- move onto main.rs (root=1, src=2, main.rs=3) and open it
     t:feed("j"):feed("<CR>")
     local opened = t:wait_for(function()
-      local name = vim.fn.expand("%:p")
+      local name = btv.expand("%:p")
       return name:find("main.rs", 1, true) and name
     end)
     btv.test.expect(opened).to_contain("main.rs")
@@ -249,7 +249,7 @@ btv.test.describe("bemtvi-tree", function()
     t:feed("j") -- onto main.rs
     t:feed("s") -- open in a horizontal split
     local opened = t:wait_for(function()
-      local name = vim.fn.expand("%:p")
+      local name = btv.expand("%:p")
       return name:find("main.rs", 1, true) and name
     end)
     btv.test.expect(opened).to_contain("main.rs")
@@ -290,7 +290,7 @@ btv.test.describe("bemtvi-tree", function()
     -- reloading main.rs into window B (which would clobber readme.txt).
     tree.reveal(main_rs)
     t:wait_for(function()
-      return vim.api.nvim_get_current_buf() == tree.bufnr() and true
+      return btv.buf.current() == tree.bufnr() and true
     end)
     t:feed("<CR>")
     local jumped = t:wait_for(function()
@@ -305,15 +305,15 @@ btv.test.describe("bemtvi-tree", function()
   -- the root, the header is the cwd's basename (not the absolute path) and an opened file
   -- carries a cwd-relative buffer name. Restores the cwd so later tests are unaffected.
   btv.test.it("shows the root and opens files relative to the cwd", function(t)
-    local prev = vim.fn.getcwd()
-    vim.cmd("cd " .. ROOT)
+    local prev = btv.cwd()
+    btv.cmd("cd " .. ROOT)
     -- `:cd` drains at end-of-tick; wait until getcwd mirrors the new dir before reading it.
     -- The editor canonicalizes the cwd, so on macOS the tempdir's `/var/folders` symlink
     -- resolves to `/private/var/...` and getcwd never equals ROOT verbatim — accept either
     -- the tempdir path or its realpath, and use whatever getcwd actually reports downstream.
     local root_real = btv.await(fs.realpath(ROOT))
     local cwd = t:wait_for(function()
-      local c = vim.fn.getcwd()
+      local c = btv.cwd()
       return (c == ROOT or c == root_real) and c
     end)
     tree.destroy()
@@ -321,7 +321,7 @@ btv.test.describe("bemtvi-tree", function()
     open_ready(t)
 
     local header = btv.buf.lines(tree.bufnr(), 0, 1, false)[1]
-    btv.test.expect(header).to_contain(vim.fn.fnamemodify(cwd, ":t"))
+    btv.test.expect(header).to_contain(btv.fname.modify(cwd, ":t"))
     btv.test.expect(header).never.to_contain(cwd)
 
     t:feed("j"):feed("<CR>") -- expand src/
@@ -329,12 +329,12 @@ btv.test.describe("bemtvi-tree", function()
     t:feed("j"):feed("<CR>") -- open main.rs
     -- The opened buffer's stored name is cwd-relative, not the absolute path.
     local name = t:wait_for(function()
-      local n = vim.fn.expand("%")
+      local n = btv.expand("%")
       return n ~= "" and n:find("main.rs", 1, true) and n
     end)
     btv.test.expect(name).to_be("src/main.rs")
 
-    vim.cmd("cd " .. prev)
+    btv.cmd("cd " .. prev)
   end)
 
   -- The combination the bundled example uses (git + follow + open_on_start) must
@@ -471,7 +471,7 @@ btv.test.describe("bemtvi-tree", function()
     actions.mouse_click(state, tree.api) -- a single click on a file is a no-op
     t:feed("") -- settle a tick
     -- Focus never left the tree: the active buffer is not the file.
-    btv.test.expect(vim.fn.expand("%:p"):find("readme.txt", 1, true)).to_be_nil()
+    btv.test.expect(btv.expand("%:p"):find("readme.txt", 1, true)).to_be_nil()
   end)
 
   btv.test.it("double-clicks a file to open it in the main editor (mouse_open)", function(t)
@@ -483,7 +483,7 @@ btv.test.describe("bemtvi-tree", function()
     t:feed("j") -- onto main.rs (root1 src2 main.rs3)
     actions.mouse_open(state, tree.api) -- the second press opens the file
     local opened = t:wait_for(function()
-      local name = vim.fn.expand("%:p")
+      local name = btv.expand("%:p")
       return name:find("main.rs", 1, true) and name
     end)
     btv.test.expect(opened).to_contain("main.rs")

@@ -131,10 +131,10 @@ end
 -- the root *is* the cwd, a cwd-relative subpath when under it, else ~-relative (home),
 -- else the absolute path. Keeps the header short and anchored to where you launched.
 local function root_label(path)
-  if path == vim.fn.getcwd() then
-    return vim.fn.fnamemodify(path, ":t")
+  if path == btv.cwd() then
+    return btv.fname.modify(path, ":t")
   end
-  return vim.fn.fnamemodify(path, ":.:~")
+  return btv.fname.modify(path, ":.:~")
 end
 
 -- The display name for a node: the cwd-relative root label for the header, the basename
@@ -185,7 +185,7 @@ local function open_paths()
   for _, b in ipairs(btv.buf.list()) do
     local name = btv.buf.name(b)
     if name and name ~= "" then
-      set[vim.fn.fnamemodify(name, ":p")] = true
+      set[btv.fname.modify(name, ":p")] = true
     end
   end
   return set

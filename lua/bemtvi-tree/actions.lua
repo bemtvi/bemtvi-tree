@@ -69,14 +69,14 @@ end
 -- for dedup), so opening relative keeps the buffer name — and everything that displays
 -- it — relative to where the editor was launched.
 local function open_target(path)
-  return vim.fn.fnamemodify(path, ":.")
+  return btv.fname.modify(path, ":.")
 end
 
 -- Open a file node in the main editor. `mode` is "edit" | "split" | "vsplit" | "tab".
 -- Splits/tabs cross to the main layer first (so the new window is carved out of the
 -- editor, not the sidebar dock), then open the file in it.
 --
--- The cross MUST settle before the split: `btv.layer.main()` and `vim.cmd("split")`
+-- The cross MUST settle before the split: `btv.layer.main()` and `btv.cmd("split")`
 -- both queue, and the editor runs queued ex-commands *before* the queued layer cross —
 -- so issuing the split in the same tick splits the still-focused tree dock. Awaiting a
 -- tick after the cross makes main the focused layer first; the split (and the open that
@@ -91,11 +91,11 @@ local function open_file(node, mode)
   btv.layer.main()
   btv.await(next_tick())
   if mode == "split" then
-    vim.cmd("split")
+    btv.cmd("split")
   elseif mode == "vsplit" then
-    vim.cmd("vsplit")
+    btv.cmd("vsplit")
   elseif mode == "tab" then
-    vim.cmd("tabnew")
+    btv.cmd("tabnew")
   end
   -- reuse = false: this is an explicit split/tab gesture, so put the file into the
   -- window we just made rather than jumping to another window already showing it.
@@ -220,7 +220,7 @@ function M.mouse_menu(tree, api)
   end
   tree.view:set_cursor(pos.line)
 
-  local title = vim.fn.fnamemodify(node.path, ":t")
+  local title = btv.fname.modify(node.path, ":t")
   local choice = btv.await(btv.ui.select(menu_for(tree, node), {
     prompt = title ~= "" and title or node.path,
     format_item = function(it)

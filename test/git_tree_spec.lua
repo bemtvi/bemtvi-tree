@@ -124,7 +124,7 @@ end
 btv.test.describe("bemtvi-tree git presentation", function()
   btv.test.before_each(function()
     tree.destroy()
-    vim.g.mapleader = " "
+    btv.g.mapleader = " "
     ROOT = btv.test.tempdir()
     have_git = btv.await(btv.run({ cmd = "git", args = { "--version" } })).code == 0
     if not have_git then
