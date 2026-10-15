@@ -480,16 +480,13 @@ local function build(opts)
     .. "CursorLine:NvimTreeCursorLine,CursorLineNr:NvimTreeCursorLineNr"
   btv.dock.opt(M.config.position).winhighlight = WINHL
   btv
-    .wait_for(
-      function()
-        return tree.view:winid()
-      end,
-      {
-        tries = 100,
-        interval = 10,
-        message = "bemtvi-tree: window never appeared for chrome setup",
-      }
-    )
+    .wait_for(function()
+      return tree.view:winid()
+    end, {
+      tries = 100,
+      interval = 10,
+      message = "bemtvi-tree: window never appeared for chrome setup",
+    })
     :next(function(win)
       -- Also set the remap on the window directly, so a restore slot that isn't a
       -- dock still gets the darker background.
