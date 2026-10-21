@@ -83,7 +83,7 @@ btv.test.describe("bemtvi-tree.highlights", function()
       return btv.hl.get(0, { name = group, link = false }).fg
     end
     btv.test.expect(fg("NvimTreeFolderName")).to_be(0xfb8c3c) -- `blue`: the function orange
-    btv.test.expect(fg("NvimTreeGitNew")).to_be(0x83a7ea) -- `green`: the string cornflower
+    btv.test.expect(fg("NvimTreeGitNew")).to_be(0xb6d98b) -- `green`: the "added" green
     btv.test.expect(fg("NvimTreeGitDirty")).to_be(0xf4e472) -- `yellow`
     btv.test.expect(fg("NvimTreeGitDeleted")).to_be(0xf08a7e) -- `red`
     btv.test.expect(fg("NvimTreeIndentMarker")).to_be(0x8d929d) -- `muted`: the comment grey
