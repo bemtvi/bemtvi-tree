@@ -14,7 +14,7 @@
 --
 -- Fallback colors are DERIVED from the active theme via `btv.hl.palette()` rather than
 -- hardcoded, so the sidebar reads as part of whatever colorscheme is loaded: the
--- editor's own `bemtvi` One Dark by default, catppuccin under catppuccin, and a light
+-- editor's own `bemtvi` scheme by default, catppuccin under catppuccin, and a light
 -- flavour without a dark-theme hex bleeding through the many groups no theme's
 -- nvim-tree integration models (the icons, the staged/ignored git states, the
 -- cut/copy marks). That is also why `defaults()` is a function rather than a table:

@@ -70,7 +70,9 @@ btv.test.describe("bemtvi-tree.highlights", function()
 
   -- The fallbacks are DERIVED from the active theme (btv.hl.palette), not hardcoded to
   -- one colorscheme's hexes, so the sidebar reads as part of whatever is loaded. Under
-  -- the editor's own `bemtvi` scheme that means its One Dark hues.
+  -- the editor's own `bemtvi` scheme that means its hues: each palette slot is a role
+  -- (`blue` is the function colour, `green` the string colour), whatever colour the
+  -- scheme gives it.
   btv.test.it("derives its fallback colors from the active colorscheme", function(t)
     -- `hi clear` first: earlier `it`s in this file claim some NvimTree* groups with
     -- explicit `btv.hl.define` colours, and the fallback rightly yields to those.
@@ -80,12 +82,12 @@ btv.test.describe("bemtvi-tree.highlights", function()
     local function fg(group)
       return btv.hl.get(0, { name = group, link = false }).fg
     end
-    btv.test.expect(fg("NvimTreeFolderName")).to_be(0x61afef) -- One Dark blue
-    btv.test.expect(fg("NvimTreeGitNew")).to_be(0x98c379) -- One Dark green
-    btv.test.expect(fg("NvimTreeGitDirty")).to_be(0xe5c07b) -- One Dark yellow
-    btv.test.expect(fg("NvimTreeGitDeleted")).to_be(0xe06c75) -- One Dark red
-    btv.test.expect(fg("NvimTreeIndentMarker")).to_be(0x5c6370) -- One Dark comment grey
-    btv.test.expect(fg("BtvTreeIconRust")).to_be(0xd19a66) -- One Dark orange
+    btv.test.expect(fg("NvimTreeFolderName")).to_be(0xfb8c3c) -- `blue`: the function orange
+    btv.test.expect(fg("NvimTreeGitNew")).to_be(0x83a7ea) -- `green`: the string cornflower
+    btv.test.expect(fg("NvimTreeGitDirty")).to_be(0xf4e472) -- `yellow`
+    btv.test.expect(fg("NvimTreeGitDeleted")).to_be(0xf08a7e) -- `red`
+    btv.test.expect(fg("NvimTreeIndentMarker")).to_be(0x8d929d) -- `muted`: the comment grey
+    btv.test.expect(fg("BtvTreeIconRust")).to_be(0xf0b35c) -- `orange`: the constant amber
   end)
 
   -- The half a plain `btv.hl.exists` guard gets wrong: `:colorscheme` drops only the
@@ -95,7 +97,7 @@ btv.test.describe("bemtvi-tree.highlights", function()
   btv.test.it("re-derives a group no theme models when the theme changes", function(t)
     t:cmd("colorscheme bemtvi")
     highlights.apply({})
-    btv.test.expect(btv.hl.get(0, { name = "BtvTreeIconRust", link = false }).fg).to_be(0xd19a66)
+    btv.test.expect(btv.hl.get(0, { name = "BtvTreeIconRust", link = false }).fg).to_be(0xf0b35c)
 
     -- Stand in for another theme: move the group the `orange` slot derives from.
     t:cmd("hi clear")

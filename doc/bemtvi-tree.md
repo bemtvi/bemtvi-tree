@@ -410,7 +410,7 @@ These groups are defined only as a FALLBACK — a colorscheme (or your `opts.hig
 that defines them wins, regardless of load order. The fallback colors are not hardcoded to one
 theme: they are *derived* from the active colorscheme through `btv.hl.palette()` and re-derived on
 every `ColorScheme` event, so the sidebar reads as part of whatever is loaded — the editor's own
-`bemtvi` One Dark by default. That matters most for the many groups no colorscheme's nvim-tree
+`bemtvi` scheme by default. That matters most for the many groups no colorscheme's nvim-tree
 integration models (every `BtvTreeIcon*`, the staged/ignored git states, the cut/copy marks): they
 follow the theme too, instead of leaving one theme's hexes standing under another. The four
 window-chrome groups link to the editor's own chrome (`NormalFloat`, `EndOfBuffer`, `CursorLine`,
