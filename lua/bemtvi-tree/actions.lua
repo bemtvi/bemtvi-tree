@@ -433,8 +433,14 @@ function M.yank_path(tree)
     return
   end
   btv.reg.set('"', node.path)
-  btv.reg.set("+", node.path)
-  btv.notify("bemtvi-tree: yanked " .. node.path)
+  return btv.clipboard.write(node.path):next(function()
+    btv.notify("bemtvi-tree: yanked " .. node.path)
+  end, function(err)
+    btv.notify(
+      "bemtvi-tree: couldn't copy " .. node.path .. ": " .. tostring(err),
+      btv.log.levels.ERROR
+    )
+  end)
 end
 
 -- ----- view-level actions ----------------------------------------------------

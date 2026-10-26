@@ -248,7 +248,7 @@ cut               Mark the entry to be moved on the next paste
 copy              Mark the entry to be copied on the next paste
 paste             Move/copy the marked entry under the cursor's dir
 clear_clipboard   Forget a pending cut/copy
-yank_path         Yank the absolute path to the " and + registers
+yank_path         Copy the absolute path to the clipboard and the " register
 refresh           Re-scan the whole tree
 toggle_hidden     Show/hide dotfiles
 toggle_git_ignored  Dim/hide git-ignored entries

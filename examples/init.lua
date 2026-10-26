@@ -26,7 +26,7 @@
 --   a                        create (end the name with "/" for a directory)
 --   r  rename   d  delete (confirms)
 --   x  cut      c  copy      p  paste (move/copy under the cursor's dir)
---   y                        yank the absolute path to the " and + registers
+--   y                        copy the absolute path to the clipboard and the " register
 --   <leader>/ filter         R  refresh        H  hide/show dotfiles (shown by default)
 --     (Esc clears it; a bare / stays the editor's own buffer search)
 --   I                        git-ignored entries (and `.git`): dimmed <-> hidden

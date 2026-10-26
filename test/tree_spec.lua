@@ -564,6 +564,26 @@ btv.test.describe("bemtvi-tree", function()
     btv.test.expect(menu_labels(state.root)["Paste"]).to_be_truthy()
   end)
 
+  -- `y` (and the menu's "Copy path") puts the node's absolute path on the system
+  -- clipboard through `btv.clipboard`, and in the unnamed register for a plain `p`.
+  btv.test.it("yank_path copies the path to the clipboard and the unnamed register", function(t)
+    open_ready(t)
+    btv.test.clipboard.clear()
+    local state = tree.api.state()
+    local node = node_named("readme.txt")
+    for i, n in ipairs(state.flat) do
+      if n == node then
+        state.view:set_cursor(i)
+      end
+    end
+    t:feed("y")
+    local copied = t:wait_for(function()
+      return btv.test.clipboard.peek() == node.path and node.path or nil
+    end, { message = "the path never reached the clipboard" })
+    btv.test.expect(copied).to_be(node.path)
+    btv.test.expect(btv.reg.get('"')).to_be(node.path)
+  end)
+
   btv.test.it("every menu entry names a real action (no dangling dispatch)", function(t)
     open_ready(t)
     local state = tree.api.state()
