@@ -261,7 +261,6 @@ clear_filter      Drop an active filter
 close             Hide the tree and return to the editor
 mouse_click       Single left-click: toggle the dir under the pointer
 mouse_open        Double left-click: open the file under the pointer
-mouse_menu        Right-click: a context menu for the node
 ```
 
 That list is also available at runtime as `require("bemtvi-tree.config").ACTIONS`, a
@@ -274,21 +273,34 @@ The mouse is on by default:
 ```
 <LeftMouse>     mouse_click   single click: expand / collapse a directory
 <2-LeftMouse>   mouse_open    double click: open a file in the editor
-<RightMouse>    mouse_menu    context menu for the node under the pointer
 ```
 
 Files do not open on a single click, so a stray click never opens a buffer. The wheel scrolls the
 sidebar.
 
-The context menu is context-aware — open / split / tab for a file, expand / new / set-root for a
-directory, and the file ops (rename, delete, cut, copy, paste, copy-path) where they apply. It is
-built from the same actions as the keys, so it always matches your bindings. It needs the tree
-focused, since a right-click does not focus a window: left-click into the sidebar first, or it is
-already focused after any other interaction.
+A right-click opens the editor's context menu at the pointer, on the node you clicked (the click
+focuses the tree and moves its cursor there first). The tree's own rows come first, and they are
+context-aware: open / split / tab for a file, expand / new / set-root for a directory, and the file
+ops (rename, delete, cut, copy, paste, copy-path) where they apply. They are built from the same
+actions as the keys, so they always match your bindings. Below them come the editor's rows for a
+read-only buffer: Select All, and Copy over a selection.
 
-Like every `btv.ui.select` list, the menu opens NOSELECT — nothing is highlighted, so a bare `<CR>`
-is inert until you move onto a row (`j` / `<C-n>` / the arrows). Clicking a row does both at once.
-`<Esc>` or `q` dismisses it.
+One click chooses a row, and the row under the pointer is highlighted. `<Esc>`, or a click
+anywhere else, dismisses the menu.
+
+The rows are the `tree` group of the editor's context menu (`btv.contextmenu`, see bemtvi's
+`docs/features/context-menu.md`), first in the tree buffer's group list. Change that list to
+reorder or drop them, as for any buffer:
+
+```lua
+require("bemtvi-tree").setup({
+  on_attach = function(_, buf)
+    btv.contextmenu.set(buf, { "tree" }) -- only the tree's rows
+  end,
+})
+```
+
+`btv.contextmenu.set(buf, {})` there turns the menu off in the tree.
 
 Turn the mouse off — or remap it — like any other key:
 
@@ -297,7 +309,6 @@ require("bemtvi-tree").setup({
   mappings = {
     ["<LeftMouse>"] = false,
     ["<2-LeftMouse>"] = false,
-    ["<RightMouse>"] = false,
     -- … or open files on a single click too:
     -- ["<LeftMouse>"] = "select",
   },

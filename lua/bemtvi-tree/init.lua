@@ -403,6 +403,21 @@ end
 
 -- ----- build / lifecycle -----------------------------------------------------
 
+-- The `tree` group of the editor's right-click menu (`btv.contextmenu`): operations
+-- for the node under the cursor. It reads the live singleton at click time, so it
+-- survives a rebuild; the guard keeps it out of any buffer but the tree's, should a
+-- user list `"tree"` elsewhere.
+local function wire_context_menu()
+  btv.contextmenu.groups.tree = {
+    when = function(ctx)
+      return tree ~= nil and ctx.buf == tree.view:bufnr()
+    end,
+    items = function()
+      return actions.context_menu_items(tree, api)
+    end,
+  }
+end
+
 -- Build the tree on first open: mint the view, mount it in the configured dock side,
 -- load + render the root, install the bindings + on_attach + git, arm the watch, then
 -- land focus back in the editor.
@@ -515,6 +530,13 @@ local function build(opts)
   when_buf(function()
     local buf = tree.view:bufnr()
     keymap.install(tree, api)
+    -- The right-click menu: the tree's own rows first, above the editor's read-only
+    -- defaults (Select All, Copy over a selection).
+    wire_context_menu()
+    local list = btv.contextmenu.list(buf)
+    if list[1] ~= "tree" then
+      table.insert(list, 1, "tree")
+    end
     if M.config.git then
       require("bemtvi-tree.git").enable(api)
     end

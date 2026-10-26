@@ -502,11 +502,11 @@ btv.test.describe("bemtvi-tree", function()
     btv.test.expect(wait_contains(t, "main.rs")).to_contain("main.rs")
   end)
 
-  -- Right-click context menu. A mapped <RightMouse> does NOT move the cursor, so
-  -- mouse_menu resolves the clicked node from btv.getmousepos() and pops an btv.ui.select
-  -- of operations for it. menu_for builds that list (context-dependent), and the chosen
-  -- entry dispatches a built-in action — so we check both the composition and one full
-  -- pop-and-run flow.
+  -- Right-click context menu. The tree adds a `tree` group to the editor's menu
+  -- (`btv.contextmenu`), first in its buffer's list. The editor's right-click default
+  -- moves the cursor onto the clicked row, so the group's rows act on the node under the
+  -- cursor. menu_for builds those rows (context-dependent), and a chosen row dispatches
+  -- a built-in action — so we check both the composition and the real gesture.
 
   -- Find the node for a name in the current flat list (the render's userdata order).
   local function node_named(name)
@@ -526,9 +526,14 @@ btv.test.describe("bemtvi-tree", function()
     return labels
   end
 
-  btv.test.it("wires <RightMouse> to the context menu", function()
+  btv.test.it("puts its group first in the tree buffer's context menu", function(t)
+    open_ready(t)
+    local list = btv.contextmenu.list(tree.bufnr())
+    btv.test.expect(list[1]).to_be("tree")
+    -- The editor's read-only defaults stay below it, and no <RightMouse> map hides them.
+    btv.test.expect(list[2]).to_be("clipboard")
     local d = require("bemtvi-tree.config").defaults()
-    btv.test.expect(d.mappings["<RightMouse>"]).to_be("mouse_menu")
+    btv.test.expect(d.mappings["<RightMouse>"]).to_be_nil()
   end)
 
   btv.test.it("offers file ops for a file and dir ops for a directory", function(t)
@@ -570,26 +575,29 @@ btv.test.describe("bemtvi-tree", function()
     end
   end)
 
-  -- The full gesture: right-click src/ → the menu pops → confirming its first entry
-  -- ("Expand") expands the clicked directory. The cursor starts on the root, so the op
-  -- landing on src/ proves the menu used the CLICKED cell (getmousepos), not the cursor.
-  btv.test.it("pops the menu on right-click and runs the chosen op on the clicked node", function(t)
+  -- The full gesture: right-click src/ → the menu opens at the pointer with the tree's
+  -- rows on top → one click on "Expand" expands the clicked directory. The cursor starts
+  -- on the root, so the op landing on src/ proves the right-click moved the cursor to the
+  -- clicked row before the rows were built.
+  btv.test.it("right-click opens the menu and runs the chosen op on the clicked node", function(t)
     open_ready(t)
     local state = tree.api.state()
     state.view:set_cursor(1) -- cursor on the root, not on src/
-    -- Stand in for the server's mouse mirror: a right-click on src/ (flat line 2). The
-    -- real signal is identical — getmousepos() reads exactly this mirror.
-    btv._mouse_pos = { winid = state.view:winid(), line = 2 }
-    tree.api.run(function()
-      actions.mouse_menu(state, tree.api)
-    end)
-    t:feed("", { settle = 2 }) -- let the set_cursor + select-open ops drain
-    -- `btv.ui.select` opens NOSELECT (like the completion popup / wildmenu): with nothing
-    -- highlighted a bare <CR> is inert, by design. Navigate onto the first entry
-    -- ("Expand"), then confirm it — the two beats a keyboard user performs (a click on
-    -- the row does both at once).
-    t:feed("j")
-    t:feed("<CR>")
+    local win = state.view:winid()
+    local pos = btv.win.position(win)
+    -- src/ is the view's line 2; click a few cells into its text.
+    local row, col = pos[1] + 1, pos[2] + btv.win.textoff(win) + 4
+    t:mouse("right", "press", row, col)
+    local m = t:wait_for(function()
+      local menu = t:menu()
+      return menu and #menu.items > 0 and menu or nil
+    end, { message = "no context menu" })
+    btv.test.expect(m.items[1]).to_be("Expand")
+    -- The tree's group, then a separator, then the read-only defaults.
+    btv.test.expect(m.items[#m.items]).to_be("Select All")
+    -- The box's border sits on the clicked cell, so its first row is one below.
+    t:mouse("left", "press", row + 1, col + 2)
+    t:mouse("left", "release", row + 1, col + 2)
     btv.test.expect(wait_contains(t, "main.rs")).to_contain("main.rs")
   end)
 

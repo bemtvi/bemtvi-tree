@@ -166,10 +166,10 @@ function M.mouse_open(tree, _api)
 end
 
 -- The right-click context menu, built for the clicked `node`. Each entry is
--- `{ label, action }` where `action` is a built-in action name (dispatched below on the
--- node the menu is anchored to) — so the menu and the keymaps stay one source of truth.
--- Entries are context-dependent: open/split for files, expand/new/set-root for
--- directories, the file ops only off the root, and paste only with a pending cut/copy.
+-- `{ label, action }` where `action` is a built-in action name (dispatched on the node
+-- under the cursor) — so the menu and the keymaps stay one source of truth. Entries are
+-- context-dependent: open/split for files, expand/new/set-root for directories, the
+-- file ops only off the root, and paste only with a pending cut/copy.
 local function menu_for(tree, node)
   local items = {}
   local function add(label, action)
@@ -201,36 +201,29 @@ local function menu_for(tree, node)
 end
 M._menu_for = menu_for -- a test/introspection seam (like M.current)
 
--- mouse_menu — the <RightMouse> action: pop a context menu of operations for the
--- node under the pointer. A mapped right-click does NOT move the cursor (unlike
--- <LeftMouse>), so the clicked node is resolved from `btv.getmousepos()` — the position
--- the server mirrors before this body runs — rather than `current(tree)`. The cursor is
--- then anchored on that node so the chosen action (which acts on the node under the
--- cursor) targets it; the menu interaction spans several ticks, so the move has settled
--- by the time a choice is confirmed. Right-click only reaches here when the tree is the
--- focused buffer (a buffer-local map), so the click is always inside this tree.
-function M.mouse_menu(tree, api)
-  local pos = btv.getmousepos()
-  if pos.winid ~= tree.view:winid() or pos.line == 0 then
-    return
-  end
-  local node = tree.flat[pos.line]
+-- context_menu_items(tree, api) — the rows of the `tree` context-menu group
+-- (`btv.contextmenu`), for the node under the cursor. A right-click has already moved
+-- the cursor onto the clicked row by the time the menu asks (the editor's right-click
+-- default places it in a read-only buffer), so the rows, like every keyboard action,
+-- act on `current(tree)`. Each row runs its action inside `api.run`, the async,
+-- error-surfacing wrapper the keymaps use.
+function M.context_menu_items(tree, api)
+  local node = current(tree)
   if not node then
-    return
+    return {}
   end
-  tree.view:set_cursor(pos.line)
-
-  local title = btv.fname.modify(node.path, ":t")
-  local choice = btv.await(btv.ui.select(menu_for(tree, node), {
-    prompt = title ~= "" and title or node.path,
-    format_item = function(it)
-      return it.label
-    end,
-  }))
-  if not choice then
-    return -- cancelled (<Esc> / q)
+  local rows = {}
+  for _, it in ipairs(menu_for(tree, node)) do
+    rows[#rows + 1] = {
+      label = it.label,
+      action = function()
+        api.run(function()
+          M[it.action](tree, api)
+        end)
+      end,
+    }
   end
-  M[choice.action](tree, api)
+  return rows
 end
 
 function M.open_split(tree)
